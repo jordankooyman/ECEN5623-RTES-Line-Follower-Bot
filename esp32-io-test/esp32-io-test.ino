@@ -38,6 +38,7 @@
 #else
   #error No Rover Configuration Selected
 #endif
+#define MOTOR_STOP (0)
 
 
 // Button bit positions in the shift register (tested, calibrated)
@@ -290,10 +291,10 @@ void controlMotors(byte_t dir)
       break;
     case Stop:
     default: // Conflicting Directions Requested, Stop
-      analogWrite(MOTOR_L1, 0);
-      analogWrite(MOTOR_L0, 0);
-      analogWrite(MOTOR_R1, 0);
-      analogWrite(MOTOR_R0, 0);
+      analogWrite(MOTOR_L1, MOTOR_STOP);
+      analogWrite(MOTOR_L0, MOTOR_STOP);
+      analogWrite(MOTOR_R1, MOTOR_STOP);
+      analogWrite(MOTOR_R0, MOTOR_STOP);
   }
 }
 
