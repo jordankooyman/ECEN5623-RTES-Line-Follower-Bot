@@ -5,8 +5,6 @@
 #include <Arduino.h>
 // Remaining todo for this test code:
 // * Motor control
-// * Revise button parsing to handle multiple inputs to get diagonals 
-// * Mode button to enable/disable the motors.
 
 // Pin definitions
 #define MOTOR_L1 (12)
@@ -52,6 +50,19 @@ enum ButtonBits {
 };
 #define BTN_COUNT (5)
 
+enum Direction {
+  North = 20,
+  NorthEast = 22,
+  East = 2,
+  SouthEast = 12,
+  South = 10,
+  SouthWest = 11,
+  West = 1,
+  NorthWest = 21,
+  Stop = 0,
+  MotorsOff = 35
+};
+
 // LED bit positions in the shift register (tested, calibrated)
 #define SHIFT_LED_DISPLAY
 #ifdef SHIFT_LED_DISPLAY
@@ -83,10 +94,10 @@ byte_t ButtonBits;
 
 void setup() {
     // Initialize motor control pins
-    /*pinMode(MOTOR_L1, OUTPUT);
+    pinMode(MOTOR_L1, OUTPUT);
     pinMode(MOTOR_L0, OUTPUT);
     pinMode(MOTOR_R1, OUTPUT);
-    pinMode(MOTOR_R0, OUTPUT);*/
+    pinMode(MOTOR_R0, OUTPUT);
 
     // Initialize Camera Flash LED pin
     pinMode(FLASH_LED, OUTPUT);
@@ -102,10 +113,10 @@ void setup() {
     digitalWrite(LATCH_PIN, HIGH);  // Latch idle state
     
     // Stop motors initially
-    /*digitalWrite(MOTOR_L1, LOW);
+    digitalWrite(MOTOR_L1, LOW);
     digitalWrite(MOTOR_L0, LOW);
     digitalWrite(MOTOR_R1, LOW);
-    digitalWrite(MOTOR_R0, LOW);*/
+    digitalWrite(MOTOR_R0, LOW);
     
     /*Serial.begin(115200); // If using serial, can only receive (cannot send any data, ESP RX Pin is used as LATCH_PIN)
     Serial.println("ESP32-CAM Shift Register Test");*/
@@ -158,45 +169,133 @@ void runShiftRegisters() {
 }
 
 
-/*void controlMotors(uint8_t direction) { // Generic Template, needs to be rewritten completely
-    // Simple motor control based on direction
-    switch (direction) {
-        case BTN_UP:
-            // Forward
-            digitalWrite(MOTOR_L1, HIGH);
-            digitalWrite(MOTOR_L0, LOW);
-            digitalWrite(MOTOR_R1, HIGH);
-            digitalWrite(MOTOR_R0, LOW);
-            break;
-        case BTN_DOWN:
-            // Backward
-            digitalWrite(MOTOR_L1, LOW);
-            digitalWrite(MOTOR_L0, HIGH);
-            digitalWrite(MOTOR_R1, LOW);
-            digitalWrite(MOTOR_R0, HIGH);
-            break;
-        case BTN_LEFT:
-            // Left turn
-            digitalWrite(MOTOR_L1, LOW);
-            digitalWrite(MOTOR_L0, HIGH);
-            digitalWrite(MOTOR_R1, HIGH);
-            digitalWrite(MOTOR_R0, LOW);
-            break;
-        case BTN_RIGHT:
-            // Right turn
-            digitalWrite(MOTOR_L1, HIGH);
-            digitalWrite(MOTOR_L0, LOW);
-            digitalWrite(MOTOR_R1, LOW);
-            digitalWrite(MOTOR_R0, HIGH);
-            break;
-        default:
-            // Stop
-            digitalWrite(MOTOR_L1, LOW);
-            digitalWrite(MOTOR_L0, LOW);
-            digitalWrite(MOTOR_R1, LOW);
-            digitalWrite(MOTOR_R0, LOW);
+byte_t parseButtons()
+{
+  byte_t buttonDirection = Stop;
+  bool btnUp = ButtonBits & (1 << BTN_UP);
+  bool btnDown = ButtonBits & (1 << BTN_DOWN);
+  bool btnLeft = ButtonBits & (1 << BTN_LEFT);
+  bool btnRight = ButtonBits & (1 << BTN_RIGHT);
+  bool btnMode = ButtonBits & (1 << BTN_MODE);
+
+  if (ButtonBits & (1 << BTN_UP))     buttonDirection += North;
+  if (ButtonBits & (1 << BTN_DOWN))   buttonDirection += South;
+  if (ButtonBits & (1 << BTN_LEFT))   buttonDirection += West;
+  if (ButtonBits & (1 << BTN_RIGHT))  buttonDirection += East;
+  if (ButtonBits & (1 << BTN_MODE))   buttonDirection += MotorsOff;
+
+  return buttonDirection;
+}
+
+
+void controlMotors(byte_t dir)
+{
+  static bool RunMotors = true;
+  static bool MotorStateChanged = false;
+
+  if (dir >= MotorsOff)
+  {
+    if (!MotorStateChanged)
+    {
+      RunMotors = !RunMotors;
+      MotorStateChanged = true;
     }
-}*/
+    dir -= MotorsOff;
+  }
+  else
+    MotorStateChanged = false;
+
+  LedBits = 0;
+  switch(dir)
+  {
+    case North:
+      LedBits |= (1 << LED_NORTH);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case East:
+      LedBits |= (1 << LED_EAST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case South:
+      LedBits |= (1 << LED_SOUTH);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case West:
+      LedBits |= (1 << LED_WEST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case NorthEast:
+      LedBits |= (1 << LED_NORTHEAST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case SouthEast:
+      LedBits |= (1 << LED_SOUTHEAST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case SouthWest:
+      LedBits |= (1 << LED_SOUTHWEST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case NorthWest:
+      LedBits |= (1 << LED_NORTHWEST);
+      if (RunMotors)
+      {
+        analogWrite(MOTOR_L1, 255);
+        analogWrite(MOTOR_L0, 0);
+        analogWrite(MOTOR_R1, 255);
+        analogWrite(MOTOR_R0, 0);
+      }
+      break;
+    case Stop:
+    default: // Conflicting Directions Requested, Stop
+      analogWrite(MOTOR_L1, 0);
+      analogWrite(MOTOR_L0, 0);
+      analogWrite(MOTOR_R1, 0);
+      analogWrite(MOTOR_R0, 0);
+  }
+}
 
 
 void loop() {
@@ -204,31 +303,7 @@ void loop() {
     runShiftRegisters();
 
     // Parse Button States
-    LedBits = 0;
-    if (ButtonBits & (1 << BTN_UP)) LedBits |= (1 << LED_NORTH);
-    if (ButtonBits & (1 << BTN_DOWN)) LedBits |= (1 << LED_SOUTH);
-    if (ButtonBits & (1 << BTN_LEFT)) LedBits |= (1 << LED_WEST);
-    if (ButtonBits & (1 << BTN_RIGHT)) LedBits |= (1 << LED_EAST);
-    if (ButtonBits & (1 << BTN_MODE)) LedBits |= (1 << LED_NORTHEAST) | (1 << LED_NORTHWEST) | (1 << LED_SOUTHEAST) | (1 << LED_SOUTHWEST);
-    /*if (ButtonBits & (1 << BTN_UP)) LedBits |= (1 << LED_NORTHEAST);
-    if (ButtonBits & (1 << BTN_DOWN)) LedBits |= (1 << LED_SOUTHWEST);
-    if (ButtonBits & (1 << BTN_LEFT)) LedBits |= (1 << LED_NORTHWEST);
-    if (ButtonBits & (1 << BTN_RIGHT)) LedBits |= (1 << LED_SOUTHEAST);
-    if (ButtonBits & (1 << BTN_MODE)) LedBits |= (1 << LED_EAST) | (1 << LED_WEST) | (1 << LED_SOUTH) | (1 << LED_NORTH);*/
-
-    
-    // Control motors based on button presses
-    /*if (buttons & (1 << BTN_UP)) {
-        controlMotors(BTN_UP);
-    } else if (buttons & (1 << BTN_DOWN)) {
-        controlMotors(BTN_DOWN);
-    } else if (buttons & (1 << BTN_LEFT)) {
-        controlMotors(BTN_LEFT);
-    } else if (buttons & (1 << BTN_RIGHT)) {
-        controlMotors(BTN_RIGHT);
-    } else {
-        controlMotors(0xFF); // Stop
-    }*/
+    controlMotors(parseButtons());
     
     // Small delay to debounce
     delay(50);
