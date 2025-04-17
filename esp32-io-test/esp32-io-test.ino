@@ -7,8 +7,8 @@
 // Pin definitions
 #define MOTOR_LSPEED (12)
 #define MOTOR_LDIR (13)
-#define MOTOR_RSPEED (15)
-#define MOTOR_RDIR (14)
+#define MOTOR_RSPEED (14)
+#define MOTOR_RDIR (15)
 #define DATA_IN (2)     // 74HC165 serial data input pin
 #define DATA_OUT (4)    // 74HC595 serial data output pin
 #define FLASH_LED (4)   // Onboard Camera Flash LED Pin
@@ -24,25 +24,25 @@
 #define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
 #ifdef J_ROVER
-  #define LEFT_MAX_SPEED (255)
-  #define LEFT_MIN_SPEED (70)
-  #define RIGHT_MAX_SPEED (255)
-  #define RIGHT_MIN_SPEED (70)
-  #define LEFT_FORWARD (1)
-  #define RIGHT_FORWARD (0)
+  #define LEFT_MAX_SPEED (200)
+  #define LEFT_MIN_SPEED (100)
+  #define RIGHT_MAX_SPEED (200)
+  #define RIGHT_MIN_SPEED (100)
+  #define LEFT_FORWARD (LOW)
+  #define RIGHT_FORWARD (HIGH)
 #elif defined(E_ROVER)
   #define LEFT_MAX_SPEED (255)
   #define LEFT_MIN_SPEED (70)
   #define RIGHT_MAX_SPEED (255)
   #define RIGHT_MIN_SPEED (70)
-  #define LEFT_FORWARD (1)
-  #define RIGHT_FORWARD (0)
+  #define LEFT_FORWARD (LOW)
+  #define RIGHT_FORWARD (LOW)
 #else
   #error No Rover Configuration Selected
 #endif
 #define MOTOR_STOP (0)
-#define LEFT_REVERSE (-LEFT_FORWARD)
-#define RIGHT_REVERSE (-RIGHT_FORWARD)
+#define LEFT_REVERSE (!LEFT_FORWARD)
+#define RIGHT_REVERSE (!RIGHT_FORWARD)
 
 
 // Button bit positions in the shift register (tested, calibrated)
@@ -295,10 +295,7 @@ void controlMotors(byte_t dir)
             break;
         case Stop:
         default: // Conflicting Directions Requested, Stop
-            leftSpeed = MOTOR_STOP;
-            rightSpeed = MOTOR_STOP;
-            leftDir = LEFT_FORWARD;
-            rightDir = RIGHT_FORWARD;
+            break; // Use initialization values
     }
 
     // Update outputs
