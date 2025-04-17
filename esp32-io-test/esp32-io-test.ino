@@ -1,16 +1,14 @@
 // ESP32 IO Test Code
 // Written by Jordan Kooyman
-// Last modified on 4/16/2025
+// Last modified on 4/17/2025
 
 #include <Arduino.h>
-// Remaining todo for this test code:
-// * Motor control
 
 // Pin definitions
-#define MOTOR_L1 (12)
-#define MOTOR_L0 (13)
-#define MOTOR_R1 (15)
-#define MOTOR_R0 (14)
+#define MOTOR_LSPEED (12)
+#define MOTOR_LDIR (13)
+#define MOTOR_RSPEED (15)
+#define MOTOR_RDIR (14)
 #define DATA_IN (2)     // 74HC165 serial data input pin
 #define DATA_OUT (4)    // 74HC595 serial data output pin
 #define FLASH_LED (4)   // Onboard Camera Flash LED Pin
@@ -27,18 +25,24 @@
 // Jordan's Rover
 #ifdef J_ROVER
   #define LEFT_MAX_SPEED (255)
-  #define LEFT_MIN_SPEED (0)
+  #define LEFT_MIN_SPEED (70)
   #define RIGHT_MAX_SPEED (255)
-  #define RIGHT_MIN_SPEED (0)
+  #define RIGHT_MIN_SPEED (70)
+  #define LEFT_FORWARD (1)
+  #define RIGHT_FORWARD (0)
 #elif defined(E_ROVER)
   #define LEFT_MAX_SPEED (255)
-  #define LEFT_MIN_SPEED (0)
+  #define LEFT_MIN_SPEED (70)
   #define RIGHT_MAX_SPEED (255)
-  #define RIGHT_MIN_SPEED (0)
+  #define RIGHT_MIN_SPEED (70)
+  #define LEFT_FORWARD (1)
+  #define RIGHT_FORWARD (0)
 #else
   #error No Rover Configuration Selected
 #endif
 #define MOTOR_STOP (0)
+#define LEFT_REVERSE (-LEFT_FORWARD)
+#define RIGHT_REVERSE (-RIGHT_FORWARD)
 
 
 // Button bit positions in the shift register (tested, calibrated)
@@ -95,10 +99,10 @@ byte_t ButtonBits;
 
 void setup() {
     // Initialize motor control pins
-    pinMode(MOTOR_L1, OUTPUT);
-    pinMode(MOTOR_L0, OUTPUT);
-    pinMode(MOTOR_R1, OUTPUT);
-    pinMode(MOTOR_R0, OUTPUT);
+    pinMode(MOTOR_LSPEED, OUTPUT);
+    pinMode(MOTOR_LDIR, OUTPUT);
+    pinMode(MOTOR_RSPEED, OUTPUT);
+    pinMode(MOTOR_RDIR, OUTPUT);
 
     // Initialize Camera Flash LED pin
     pinMode(FLASH_LED, OUTPUT);
@@ -114,10 +118,10 @@ void setup() {
     digitalWrite(LATCH_PIN, HIGH);  // Latch idle state
     
     // Stop motors initially
-    digitalWrite(MOTOR_L1, LOW);
-    digitalWrite(MOTOR_L0, LOW);
-    digitalWrite(MOTOR_R1, LOW);
-    digitalWrite(MOTOR_R0, LOW);
+    analogWrite(MOTOR_LSPEED, MOTOR_STOP);
+    digitalWrite(MOTOR_LDIR, LEFT_FORWARD);
+    analogWrite(MOTOR_RSPEED, MOTOR_STOP);
+    digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
     
     /*Serial.begin(115200); // If using serial, can only receive (cannot send any data, ESP RX Pin is used as LATCH_PIN)
     Serial.println("ESP32-CAM Shift Register Test");*/
@@ -172,130 +176,136 @@ void runShiftRegisters() {
 
 byte_t parseButtons()
 {
-  byte_t buttonDirection = Stop;
-  bool btnUp = ButtonBits & (1 << BTN_UP);
-  bool btnDown = ButtonBits & (1 << BTN_DOWN);
-  bool btnLeft = ButtonBits & (1 << BTN_LEFT);
-  bool btnRight = ButtonBits & (1 << BTN_RIGHT);
-  bool btnMode = ButtonBits & (1 << BTN_MODE);
+    byte_t buttonDirection = Stop;
 
-  if (ButtonBits & (1 << BTN_UP))     buttonDirection += North;
-  if (ButtonBits & (1 << BTN_DOWN))   buttonDirection += South;
-  if (ButtonBits & (1 << BTN_LEFT))   buttonDirection += West;
-  if (ButtonBits & (1 << BTN_RIGHT))  buttonDirection += East;
-  if (ButtonBits & (1 << BTN_MODE))   buttonDirection += MotorsOff;
+    if (ButtonBits & (1 << BTN_UP))     buttonDirection += North;
+    if (ButtonBits & (1 << BTN_DOWN))   buttonDirection += South;
+    if (ButtonBits & (1 << BTN_LEFT))   buttonDirection += West;
+    if (ButtonBits & (1 << BTN_RIGHT))  buttonDirection += East;
+    if (ButtonBits & (1 << BTN_MODE))   buttonDirection += MotorsOff;
 
-  return buttonDirection;
+    return buttonDirection;
 }
 
 
 void controlMotors(byte_t dir)
 {
-  static bool RunMotors = true;
-  static bool MotorStateChanged = false;
+    static bool RunMotors = true;
+    static bool MotorStateChanged = false;
 
-  if (dir >= MotorsOff)
-  {
-    if (!MotorStateChanged)
+    if (dir >= MotorsOff)
     {
-      RunMotors = !RunMotors;
-      MotorStateChanged = true;
+        if (!MotorStateChanged)
+        {
+            RunMotors = !RunMotors;
+            MotorStateChanged = true;
+        }
+        dir -= MotorsOff;
     }
-    dir -= MotorsOff;
-  }
-  else
-    MotorStateChanged = false;
+    else
+        MotorStateChanged = false;
 
-  LedBits = 0;
-  switch(dir)
-  {
-    case North:
-      LedBits |= (1 << LED_NORTH);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case East:
-      LedBits |= (1 << LED_EAST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case South:
-      LedBits |= (1 << LED_SOUTH);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case West:
-      LedBits |= (1 << LED_WEST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case NorthEast:
-      LedBits |= (1 << LED_NORTHEAST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case SouthEast:
-      LedBits |= (1 << LED_SOUTHEAST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case SouthWest:
-      LedBits |= (1 << LED_SOUTHWEST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case NorthWest:
-      LedBits |= (1 << LED_NORTHWEST);
-      if (RunMotors)
-      {
-        analogWrite(MOTOR_L1, 255);
-        analogWrite(MOTOR_L0, 0);
-        analogWrite(MOTOR_R1, 255);
-        analogWrite(MOTOR_R0, 0);
-      }
-      break;
-    case Stop:
-    default: // Conflicting Directions Requested, Stop
-      analogWrite(MOTOR_L1, MOTOR_STOP);
-      analogWrite(MOTOR_L0, MOTOR_STOP);
-      analogWrite(MOTOR_R1, MOTOR_STOP);
-      analogWrite(MOTOR_R0, MOTOR_STOP);
-  }
+    byte_t leftSpeed = MOTOR_STOP;
+    byte_t rightSpeed = MOTOR_STOP;
+    byte_t leftDir = LEFT_FORWARD;
+    byte_t rightDir = RIGHT_FORWARD;
+
+    LedBits = 0;
+    switch(dir)
+    {
+        case North:
+            LedBits |= (1 << LED_NORTH);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_FORWARD;
+                rightDir = RIGHT_FORWARD;
+            }
+            break;
+        case East:
+            LedBits |= (1 << LED_EAST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_FORWARD;
+                rightDir = RIGHT_REVERSE;
+            }
+            break;
+        case South:
+            LedBits |= (1 << LED_SOUTH);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_REVERSE;
+                rightDir = RIGHT_REVERSE;
+            }
+            break;
+        case West:
+            LedBits |= (1 << LED_WEST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_REVERSE;
+                rightDir = RIGHT_FORWARD;
+            }
+            break;
+        case NorthEast:
+            LedBits |= (1 << LED_NORTHEAST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MIN_SPEED;
+                leftDir = LEFT_FORWARD;
+                rightDir = RIGHT_FORWARD;
+            }
+            break;
+        case SouthEast:
+            LedBits |= (1 << LED_SOUTHEAST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MAX_SPEED;
+                rightSpeed = RIGHT_MIN_SPEED;
+                leftDir = LEFT_REVERSE;
+                rightDir = RIGHT_REVERSE;
+            }
+            break;
+        case SouthWest:
+            LedBits |= (1 << LED_SOUTHWEST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MIN_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_REVERSE;
+                rightDir = RIGHT_REVERSE;
+            }
+            break;
+        case NorthWest:
+            LedBits |= (1 << LED_NORTHWEST);
+            if (RunMotors)
+            {
+                leftSpeed = LEFT_MIN_SPEED;
+                rightSpeed = RIGHT_MAX_SPEED;
+                leftDir = LEFT_FORWARD;
+                rightDir = RIGHT_FORWARD;
+            }
+            break;
+        case Stop:
+        default: // Conflicting Directions Requested, Stop
+            leftSpeed = MOTOR_STOP;
+            rightSpeed = MOTOR_STOP;
+            leftDir = LEFT_FORWARD;
+            rightDir = RIGHT_FORWARD;
+    }
+
+    // Update outputs
+    analogWrite(MOTOR_LSPEED, leftSpeed);
+    digitalWrite(MOTOR_LDIR, leftDir);
+    analogWrite(MOTOR_RSPEED, rightSpeed);
+    digitalWrite(MOTOR_RDIR, rightDir);
 }
 
 
