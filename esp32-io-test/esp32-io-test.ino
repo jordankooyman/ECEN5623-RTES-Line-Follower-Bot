@@ -24,21 +24,45 @@
 #define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
 #ifdef J_ROVER
-  #define LEFT_MAX_SPEED (200)
-  #define LEFT_MIN_SPEED (100)
-  #define RIGHT_MAX_SPEED (200)
-  #define RIGHT_MIN_SPEED (100)
-  #define LEFT_FORWARD (LOW)
-  #define RIGHT_FORWARD (HIGH)
+    #define LEFT_FORWARD (HIGH)
+    #define RIGHT_FORWARD (LOW)
+    #define L_N_SPD (100)
+    #define R_N_SPD (90)
+    #define L_NE_SPD (100)
+    #define R_NE_SPD (0)
+    #define L_E_SPD (100)
+    #define R_E_SPD (100)
+    #define L_SE_SPD (200)
+    #define R_SE_SPD (100)
+    #define L_S_SPD (255)
+    #define R_S_SPD (235)
+    #define L_SW_SPD (100)
+    #define R_SW_SPD (200)
+    #define L_W_SPD (100)
+    #define R_W_SPD (100)
+    #define L_NW_SPD (0)
+    #define R_NW_SPD (90)
 #elif defined(E_ROVER)
-  #define LEFT_MAX_SPEED (255)
-  #define LEFT_MIN_SPEED (70)
-  #define RIGHT_MAX_SPEED (255)
-  #define RIGHT_MIN_SPEED (70)
-  #define LEFT_FORWARD (LOW)
-  #define RIGHT_FORWARD (LOW)
+    #define LEFT_FORWARD (HIGH)
+    #define RIGHT_FORWARD (LOW)
+    #define L_N_SPD (100)
+    #define R_N_SPD (90)
+    #define L_NE_SPD (100)
+    #define R_NE_SPD (0)
+    #define L_E_SPD (100)
+    #define R_E_SPD (100)
+    #define L_SE_SPD (200)
+    #define R_SE_SPD (100)
+    #define L_S_SPD (255)
+    #define R_S_SPD (235)
+    #define L_SW_SPD (100)
+    #define R_SW_SPD (200)
+    #define L_W_SPD (100)
+    #define R_W_SPD (100)
+    #define L_NW_SPD (0)
+    #define R_NW_SPD (90)
 #else
-  #error No Rover Configuration Selected
+    #error No Rover Configuration Selected
 #endif
 #define MOTOR_STOP (0)
 #define LEFT_REVERSE (!LEFT_FORWARD)
@@ -47,43 +71,43 @@
 
 // Button bit positions in the shift register (tested, calibrated)
 enum ButtonBits {
-  BTN_UP = 7,
-  BTN_DOWN = 6,
-  BTN_LEFT = 5,
-  BTN_RIGHT = 4,
-  BTN_MODE = 3
+    BTN_UP = 7,
+    BTN_DOWN = 6,
+    BTN_LEFT = 5,
+    BTN_RIGHT = 4,
+    BTN_MODE = 3
 };
 #define BTN_COUNT (5)
 
 enum Direction {
-  North = 20,
-  NorthEast = 22,
-  East = 2,
-  SouthEast = 12,
-  South = 10,
-  SouthWest = 11,
-  West = 1,
-  NorthWest = 21,
-  Stop = 0,
-  MotorsOff = 35
+    North = 20,
+    NorthEast = 22,
+    East = 2,
+    SouthEast = 12,
+    South = 10,
+    SouthWest = 11,
+    West = 1,
+    NorthWest = 21,
+    Stop = 0,
+    MotorsOff = 35
 };
 
 // LED bit positions in the shift register (tested, calibrated)
 #define SHIFT_LED_DISPLAY
 #ifdef SHIFT_LED_DISPLAY
-  enum LEDBits {
-    LED_NORTH = 7,
-    LED_NORTHEAST = 6,
-    LED_EAST = 0,
-    LED_SOUTHEAST = 1,
-    LED_SOUTH = 2,
-    LED_SOUTHWEST = 3,
-    LED_WEST = 4,
-    LED_NORTHWEST = 5
-  };
-  #define LED_COUNT (8)
+    enum LEDBits {
+        LED_NORTH = 7,
+        LED_NORTHEAST = 6,
+        LED_EAST = 0,
+        LED_SOUTHEAST = 1,
+        LED_SOUTH = 2,
+        LED_SOUTHWEST = 3,
+        LED_WEST = 4,
+        LED_NORTHWEST = 5
+    };
+    #define LED_COUNT (8)
 #else
-  #error No Output Display Mode Selected (NeoPixels NYI)
+    #error No Output Display Mode Selected (NeoPixels NYI)
 #endif
 
 typedef unsigned char byte_t;
@@ -92,7 +116,7 @@ typedef unsigned char byte_t;
 // Global Variables
 byte_t ButtonBits;
 #ifdef SHIFT_LED_DISPLAY
-  byte_t LedBits; 
+    byte_t LedBits; 
 #endif
 
 
@@ -128,7 +152,7 @@ void setup() {
 
     ButtonBits = 0;
     #ifdef SHIFT_LED_DISPLAY
-      LedBits = 0; 
+        LedBits = 0; 
     #endif
 }
 
@@ -136,8 +160,8 @@ void setup() {
 void runShiftRegisters() {
     byte_t buttonStates = 0;
     #ifdef SHIFT_LED_DISPLAY
-      byte_t ledStates = LedBits;
-      byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
+        byte_t ledStates = LedBits;
+        byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
     #endif
     
     // Latch toggle to load parallel data into 74HC165n
@@ -151,8 +175,8 @@ void runShiftRegisters() {
         digitalWrite(SHIFT_CLK, LOW);
         
         #ifdef SHIFT_LED_DISPLAY
-          // Write the current bit
-          digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
+            // Write the current bit
+            digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
         #endif
 
         // Read the current bit and store it
@@ -163,11 +187,11 @@ void runShiftRegisters() {
     }
     
     #ifdef SHIFT_LED_DISPLAY
-      // Latch toggle to save serial data into 74HC595n
-      digitalWrite(LATCH_PIN, LOW);
-      delayMicroseconds(5);  // Small delay for latch to take effect
-      digitalWrite(LATCH_PIN, HIGH);
-      digitalWrite(FLASH_LED, prevPinState);
+        // Latch toggle to save serial data into 74HC595n
+        digitalWrite(LATCH_PIN, LOW);
+        delayMicroseconds(5);  // Small delay for latch to take effect
+        digitalWrite(LATCH_PIN, HIGH);
+        digitalWrite(FLASH_LED, prevPinState);
     #endif
 
     ButtonBits = buttonStates;
@@ -217,8 +241,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_NORTH);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_N_SPD;
+                rightSpeed = R_N_SPD;
                 leftDir = LEFT_FORWARD;
                 rightDir = RIGHT_FORWARD;
             }
@@ -227,8 +251,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_EAST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_E_SPD;
+                rightSpeed = R_E_SPD;
                 leftDir = LEFT_FORWARD;
                 rightDir = RIGHT_REVERSE;
             }
@@ -237,8 +261,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_SOUTH);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_S_SPD;
+                rightSpeed = R_S_SPD;
                 leftDir = LEFT_REVERSE;
                 rightDir = RIGHT_REVERSE;
             }
@@ -247,8 +271,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_WEST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_W_SPD;
+                rightSpeed = R_W_SPD;
                 leftDir = LEFT_REVERSE;
                 rightDir = RIGHT_FORWARD;
             }
@@ -257,8 +281,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_NORTHEAST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MIN_SPEED;
+                leftSpeed = L_NE_SPD;
+                rightSpeed = R_NE_SPD;
                 leftDir = LEFT_FORWARD;
                 rightDir = RIGHT_FORWARD;
             }
@@ -267,8 +291,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_SOUTHEAST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MAX_SPEED;
-                rightSpeed = RIGHT_MIN_SPEED;
+                leftSpeed = L_SE_SPD;
+                rightSpeed = R_SE_SPD;
                 leftDir = LEFT_REVERSE;
                 rightDir = RIGHT_REVERSE;
             }
@@ -277,8 +301,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_SOUTHWEST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MIN_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_SW_SPD;
+                rightSpeed = R_SW_SPD;
                 leftDir = LEFT_REVERSE;
                 rightDir = RIGHT_REVERSE;
             }
@@ -287,8 +311,8 @@ void controlMotors(byte_t dir)
             LedBits |= (1 << LED_NORTHWEST);
             if (RunMotors)
             {
-                leftSpeed = LEFT_MIN_SPEED;
-                rightSpeed = RIGHT_MAX_SPEED;
+                leftSpeed = L_NW_SPD;
+                rightSpeed = R_NW_SPD;
                 leftDir = LEFT_FORWARD;
                 rightDir = RIGHT_FORWARD;
             }
