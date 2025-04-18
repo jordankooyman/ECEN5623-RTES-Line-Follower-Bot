@@ -86,10 +86,10 @@ void setup()
     analogWrite(MOTOR_RSPEED, MOTOR_STOP);
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
 
-    LedBits = 7; 
+    LedBits = 3; 
 
     // Create tasks
-    //xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
+    xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
     /*xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService, CAMERA_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);*/
@@ -97,7 +97,7 @@ void setup()
     //xTaskCreate(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService);
     //xTaskCreate(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService);
 }
-byte_t ledStates = 5;
+
 /**
  * Main loop function for the ESP32-CAM Rover.
  * The function does nothing and is used to keep the initial thread running.
@@ -105,57 +105,6 @@ byte_t ledStates = 5;
  */
 void loop() {
     // Do Nothing
-    
-    while(ledStates > 0)
-    {
-        byte_t buttonStates = 0;
-        
-        
-        // Latch toggle to load parallel data into 74HC165n
-        digitalWrite(LATCH_PIN, LOW);
-        delayMicroseconds(5);  // Small delay for latch to take effect
-        digitalWrite(LATCH_PIN, HIGH);
-        
-        // Read/Write 8 bits from the shift register
-        for (int i = 0; i < SHIFT_REG_BITS; i++) {
-            // Clock low to prepare for reading/writing
-            digitalWrite(SHIFT_CLK, LOW);
-            
-            #ifdef SHIFT_LED_DISPLAY
-                // Write the current bit
-                digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
-            #endif
-
-            // Read the current bit and store it
-            buttonStates |= (digitalRead(DATA_IN) << i);
-            
-            // Clock high to shift to next bit
-            digitalWrite(SHIFT_CLK, HIGH);
-        }
-        
-        
-            // Latch toggle to save serial data into 74HC595n
-            digitalWrite(LATCH_PIN, LOW);
-            delayMicroseconds(5);  // Small delay for latch to take effect
-            digitalWrite(LATCH_PIN, HIGH);
-         
-                //digitalWrite(FLASH_LED, LOW);
-      
-    
-
-        // Parse button states
-        byte_t buttonDirection = xPrvParseButtons(buttonStates);
-
-        // Update motor state
-        motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
-
-        //LedBits = ledStates;
-        // Delay until next period
-        //vTaskDelayUntil(&xLastWakeTime, xPeriod);
-        delay(250);
-        ledStates = ledStates << 1;
-    }
-    ledStates = 1;
 }
 
 
@@ -171,12 +120,12 @@ void loop() {
  */
 void vPrvRunShiftRegisters(void *pvParameters)
 {
-    //TickType_t xLastWakeTime = xTaskGetTickCount();
-    //const TickType_t xPeriod = pdMS_TO_TICKS(SHIFT_REG_SERVICE_PERIOD_MS);
-    while(LedBits > 0)
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xPeriod = pdMS_TO_TICKS(SHIFT_REG_SERVICE_PERIOD_MS);
+    while(true)
     {
         byte_t buttonStates = 0;
-        byte_t ledStates = LedBits << 1;
+        byte_t ledStates = LedBits;
         #ifdef ENABLE_FLASH_LED
             byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
         #endif
@@ -222,7 +171,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
             #ifdef ENABLE_FLASH_LED
                 digitalWrite(FLASH_LED, prevPinState);
             #else
-                digitalWrite(FLASH_LED, LOW);
+                //digitalWrite(FLASH_LED, LOW);
             #endif
         #elif defined(ENABLE_FLASH_LED)
             // Restore the flash LED state
@@ -237,10 +186,11 @@ void vPrvRunShiftRegisters(void *pvParameters)
         // Update motor state
         motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
 
-        LedBits = ledStates;
+        LedBits = ledStates << 1;
         // Delay until next period
-        //vTaskDelayUntil(&xLastWakeTime, xPeriod);
-        delayMicroseconds(2500);
+        vTaskDelayUntil(&xLastWakeTime, xPeriod);
+        if (LedBits == 0)
+            LedBits = 1;
     }
 }
 

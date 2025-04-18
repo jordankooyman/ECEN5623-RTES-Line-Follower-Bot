@@ -10,7 +10,7 @@
 
 // Service Configurations (2 cores, Core0 must be used for Wifi/Bluetooth - 320KB RAM available total)
 #define SHIFT_REG_SERVICE_STACK_SIZE (4096) // Stack size (words) for the shift register service task
-#define SHIFT_REG_SERVICE_PERIOD_MS (1000) // Period for the shift register service task
+#define SHIFT_REG_SERVICE_PERIOD_MS (100) // Period for the shift register service task
 #define SHIFT_REG_SERVICE_PRIORITY (6) // Priority for the shift register service task
 #define SHIFT_REG_SERVICE_CORE (1) // Core for the shift register service task
 #define MOTOR_SERVICE_STACK_SIZE (10240) // Stack size (words) for the motor control service task
