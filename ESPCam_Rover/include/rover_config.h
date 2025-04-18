@@ -103,7 +103,7 @@ enum ButtonBits {
 #define BTN_COUNT (5)
 
 // LED bit positions in the shift register (tested, calibrated)
-//#define SHIFT_LED_DISPLAY
+#define SHIFT_LED_DISPLAY
 #ifdef SHIFT_LED_DISPLAY
     enum LEDBits {
         LED_NORTH = 7,
@@ -129,6 +129,7 @@ enum ButtonBits {
     };
     #define LED_COUNT (8)
     #define PIXEL_COUNT (16)
+    #warning    ---   Using WS2812b/NeoPixel Display Mode   ---
     #ifdef ENABLE_FLASH_LED
         #error Flash LED not currently supported with WS2812b display
     #endif
