@@ -35,6 +35,7 @@ motorCommand_t motorCommand;
 volatile byte_t LedBits; 
 #ifndef SHIFT_LED_DISPLAY
     CRGB leds[PIXEL_COUNT];
+    CRGB currentColor = CRGB::Turquoise;
 #endif
 
 // Function Prototypes
@@ -54,6 +55,19 @@ byte_t xPrvParseButtons(byte_t ButtonBits);
  */
 void setup()
 {
+    // Initialize shift register pins
+    #ifdef SHIFT_LED_DISPLAY
+        pinMode(DATA_OUT, OUTPUT);
+    #else
+        FastLED.addLeds<WS2812, DATA_OUT, GRB>(leds, PIXEL_COUNT);
+        fill_solid(leds, PIXEL_COUNT, CRGB::BlueViolet);
+        FastLED.setBrightness(100);
+        FastLED.show();
+    #endif
+    pinMode(SHIFT_CLK, OUTPUT);
+    pinMode(LATCH_PIN, OUTPUT);
+    pinMode(DATA_IN, INPUT);
+
     // Initialize motor control pins
     pinMode(MOTOR_LSPEED, OUTPUT);
     pinMode(MOTOR_LDIR, OUTPUT);
@@ -64,16 +78,6 @@ void setup()
         // Initialize Camera Flash LED pin
         pinMode(FLASH_LED, OUTPUT);
         digitalWrite(FLASH_LED, LOW); // Turn off flash LED
-    #endif
-    
-    // Initialize shift register pins
-    pinMode(SHIFT_CLK, OUTPUT);
-    pinMode(LATCH_PIN, OUTPUT);
-    pinMode(DATA_IN, INPUT);
-    #ifdef SHIFT_LED_DISPLAY
-        pinMode(DATA_OUT, OUTPUT);
-    #else
-        FastLED.addLeds<WS2812, DATA_OUT, GRB>(leds, PIXEL_COUNT);
     #endif
     
     // Set default states
@@ -132,8 +136,9 @@ void vPrvRunShiftRegisters(void *pvParameters)
             fill_solid(leds, PIXEL_COUNT, CRGB::Black);
 
             // Set the LED corresponding to the current direction to green
-            leds[LedBits] = CRGB::Green; 
-            FastLED.setBrightness(255);
+            if (ledStates)
+                leds[ledStates-1] = currentColor; 
+            FastLED.setBrightness(100);
 
             // Show the updated LED states
             FastLED.show();
@@ -239,7 +244,7 @@ void vPrvControlMotors(void *pvParameters)
         if (timeout > 0)
             timeout--;
         else
-            dir = MotorsOff;
+            dir = Stop;
 
         if (dir >= MotorsOff)
         {
@@ -262,7 +267,11 @@ void vPrvControlMotors(void *pvParameters)
         switch(dir)
         {
             case North:
-                ledBits |= (1 << LED_NORTH);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_NORTH);
+                #else
+                    ledBits = LED_NORTH;
+                #endif
                 if (RunMotors)
                 {
                     leftSpeed = L_N_SPD;
@@ -272,7 +281,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case East:
-                ledBits |= (1 << LED_EAST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_EAST);
+                #else
+                    ledBits = LED_EAST;
+                #endif
                 if (RunMotors)
                 {
                     leftSpeed = L_E_SPD;
@@ -282,7 +295,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case South:
-                ledBits |= (1 << LED_SOUTH);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_SOUTH);
+                #else
+                    ledBits = LED_SOUTH;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_S_SPD;
@@ -292,7 +309,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case West:
-                ledBits |= (1 << LED_WEST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_WEST);
+                #else
+                    ledBits = LED_WEST;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_W_SPD;
@@ -302,7 +323,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case NorthEast:
-                ledBits |= (1 << LED_NORTHEAST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_NORTHEAST);
+                #else
+                    ledBits = LED_NORTHEAST;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_NE_SPD;
@@ -312,7 +337,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case SouthEast:
-                ledBits |= (1 << LED_SOUTHEAST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_SOUTHEAST);
+                #else
+                    ledBits = LED_SOUTHEAST;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_SE_SPD;
@@ -322,7 +351,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case SouthWest:
-                ledBits |= (1 << LED_SOUTHWEST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_SOUTHWEST);
+                #else
+                    ledBits = LED_SOUTHWEST;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_SW_SPD;
@@ -332,7 +365,11 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case NorthWest:
-                ledBits |= (1 << LED_NORTHWEST);
+                #ifdef SHIFT_LED_DISPLAY
+                    ledBits |= (1 << LED_NORTHWEST);
+                #else
+                    ledBits = LED_NORTHWEST;
+                #endif 
                 if (RunMotors)
                 {
                     leftSpeed = L_NW_SPD;
