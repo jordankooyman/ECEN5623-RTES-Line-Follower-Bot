@@ -32,8 +32,7 @@ static TaskHandle_t cameraParsingService = NULL;
 static TaskHandle_t controllerParsingService = NULL;
 // Global State Trackers
 motorCommand_t motorCommand;
-byte_t ButtonBits;
-byte_t LedBits; 
+volatile byte_t LedBits; 
 #ifndef SHIFT_LED_DISPLAY
     CRGB leds[PIXEL_COUNT];
 #endif
@@ -43,7 +42,7 @@ void vPrvRunShiftRegisters(void *pvParameters);
 void vPrvControlMotors(void *pvParameters);
 void vPrvCameraParse(void *pvParameters);
 void vPrvControllerParse(void *pvParameters);
-byte_t xPrvParseButtons();
+byte_t xPrvParseButtons(byte_t ButtonBits);
 
 
 // Function Definitions
@@ -86,20 +85,19 @@ void setup()
     digitalWrite(MOTOR_LDIR, LEFT_FORWARD);
     analogWrite(MOTOR_RSPEED, MOTOR_STOP);
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
-    
-    /*Serial.begin(115200); // If using serial, can only receive (cannot send any data, ESP RX Pin is used as LATCH_PIN)
-    Serial.println("ESP32-CAM Shift Register Test");*/
 
-    ButtonBits = 0;
-    LedBits = 0; 
+    LedBits = 7; 
 
     // Create tasks
-    xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
-    xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
+    //xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
+    /*xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService, CAMERA_SERVICE_CORE);
-    xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);
+    xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);*/
+    //xTaskCreate(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService);
+    //xTaskCreate(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService);
+    //xTaskCreate(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService);
 }
-
+byte_t ledStates = 5;
 /**
  * Main loop function for the ESP32-CAM Rover.
  * The function does nothing and is used to keep the initial thread running.
@@ -107,6 +105,57 @@ void setup()
  */
 void loop() {
     // Do Nothing
+    
+    while(ledStates > 0)
+    {
+        byte_t buttonStates = 0;
+        
+        
+        // Latch toggle to load parallel data into 74HC165n
+        digitalWrite(LATCH_PIN, LOW);
+        delayMicroseconds(5);  // Small delay for latch to take effect
+        digitalWrite(LATCH_PIN, HIGH);
+        
+        // Read/Write 8 bits from the shift register
+        for (int i = 0; i < SHIFT_REG_BITS; i++) {
+            // Clock low to prepare for reading/writing
+            digitalWrite(SHIFT_CLK, LOW);
+            
+            #ifdef SHIFT_LED_DISPLAY
+                // Write the current bit
+                digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
+            #endif
+
+            // Read the current bit and store it
+            buttonStates |= (digitalRead(DATA_IN) << i);
+            
+            // Clock high to shift to next bit
+            digitalWrite(SHIFT_CLK, HIGH);
+        }
+        
+        
+            // Latch toggle to save serial data into 74HC595n
+            digitalWrite(LATCH_PIN, LOW);
+            delayMicroseconds(5);  // Small delay for latch to take effect
+            digitalWrite(LATCH_PIN, HIGH);
+         
+                //digitalWrite(FLASH_LED, LOW);
+      
+    
+
+        // Parse button states
+        byte_t buttonDirection = xPrvParseButtons(buttonStates);
+
+        // Update motor state
+        motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+
+        //LedBits = ledStates;
+        // Delay until next period
+        //vTaskDelayUntil(&xLastWakeTime, xPeriod);
+        delay(250);
+        ledStates = ledStates << 1;
+    }
+    ledStates = 1;
 }
 
 
@@ -122,12 +171,12 @@ void loop() {
  */
 void vPrvRunShiftRegisters(void *pvParameters)
 {
-    TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xPeriod = pdMS_TO_TICKS(SHIFT_REG_SERVICE_PERIOD_MS);
-    while(true)
+    //TickType_t xLastWakeTime = xTaskGetTickCount();
+    //const TickType_t xPeriod = pdMS_TO_TICKS(SHIFT_REG_SERVICE_PERIOD_MS);
+    while(LedBits > 0)
     {
         byte_t buttonStates = 0;
-        byte_t ledStates = LedBits;
+        byte_t ledStates = LedBits << 1;
         #ifdef ENABLE_FLASH_LED
             byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
         #endif
@@ -172,6 +221,8 @@ void vPrvRunShiftRegisters(void *pvParameters)
             digitalWrite(LATCH_PIN, HIGH);
             #ifdef ENABLE_FLASH_LED
                 digitalWrite(FLASH_LED, prevPinState);
+            #else
+                digitalWrite(FLASH_LED, LOW);
             #endif
         #elif defined(ENABLE_FLASH_LED)
             // Restore the flash LED state
@@ -180,15 +231,16 @@ void vPrvRunShiftRegisters(void *pvParameters)
             digitalWrite(FLASH_LED, prevPinState);
         #endif
 
-        ButtonBits = buttonStates;
         // Parse button states
-        byte_t buttonDirection = xPrvParseButtons();
+        byte_t buttonDirection = xPrvParseButtons(buttonStates);
 
         // Update motor state
         motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
 
+        LedBits = ledStates;
         // Delay until next period
-        vTaskDelayUntil(&xLastWakeTime, xPeriod);
+        //vTaskDelayUntil(&xLastWakeTime, xPeriod);
+        delayMicroseconds(2500);
     }
 }
 
@@ -201,7 +253,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
  *
  * @return byte_t representing the direction based on button states.
  */
-byte_t xPrvParseButtons()
+byte_t xPrvParseButtons(byte_t ButtonBits)
 {
     byte_t buttonDirection = Stop;
 
@@ -235,7 +287,7 @@ void vPrvControlMotors(void *pvParameters)
     bool RunMotors = true;
     bool MotorStateChanged = false;
     while(true)
-    {
+    {/*
         byte_t dir;
         byte_t timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeed(&dir, &timeout);
@@ -261,12 +313,12 @@ void vPrvControlMotors(void *pvParameters)
         byte_t rightSpeed = MOTOR_STOP;
         byte_t leftDir = LEFT_FORWARD;
         byte_t rightDir = RIGHT_FORWARD;
+        byte_t ledBits = 0;
 
-        LedBits = 0;
         switch(dir)
         {
             case North:
-                LedBits |= (1 << LED_NORTH);
+                ledBits |= (1 << LED_NORTH);
                 if (RunMotors)
                 {
                     leftSpeed = L_N_SPD;
@@ -276,7 +328,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case East:
-                LedBits |= (1 << LED_EAST);
+                ledBits |= (1 << LED_EAST);
                 if (RunMotors)
                 {
                     leftSpeed = L_E_SPD;
@@ -286,7 +338,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case South:
-                LedBits |= (1 << LED_SOUTH);
+                ledBits |= (1 << LED_SOUTH);
                 if (RunMotors)
                 {
                     leftSpeed = L_S_SPD;
@@ -296,7 +348,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case West:
-                LedBits |= (1 << LED_WEST);
+                ledBits |= (1 << LED_WEST);
                 if (RunMotors)
                 {
                     leftSpeed = L_W_SPD;
@@ -306,7 +358,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case NorthEast:
-                LedBits |= (1 << LED_NORTHEAST);
+                ledBits |= (1 << LED_NORTHEAST);
                 if (RunMotors)
                 {
                     leftSpeed = L_NE_SPD;
@@ -316,7 +368,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case SouthEast:
-                LedBits |= (1 << LED_SOUTHEAST);
+                ledBits |= (1 << LED_SOUTHEAST);
                 if (RunMotors)
                 {
                     leftSpeed = L_SE_SPD;
@@ -326,7 +378,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case SouthWest:
-                LedBits |= (1 << LED_SOUTHWEST);
+                ledBits |= (1 << LED_SOUTHWEST);
                 if (RunMotors)
                 {
                     leftSpeed = L_SW_SPD;
@@ -336,7 +388,7 @@ void vPrvControlMotors(void *pvParameters)
                 }
                 break;
             case NorthWest:
-                LedBits |= (1 << LED_NORTHWEST);
+                ledBits |= (1 << LED_NORTHWEST);
                 if (RunMotors)
                 {
                     leftSpeed = L_NW_SPD;
@@ -355,6 +407,8 @@ void vPrvControlMotors(void *pvParameters)
         digitalWrite(MOTOR_LDIR, leftDir);
         analogWrite(MOTOR_RSPEED, rightSpeed);
         digitalWrite(MOTOR_RDIR, rightDir);
+*/
+        LedBits = 0;//ledBits;
 
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);

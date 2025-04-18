@@ -26,8 +26,8 @@ enum Direction {
 class motorCommand_t
 {
 public:
-    motorCommand_t() : dir(0), timeout(0) {xUpdatingSemaphore = xSemaphoreCreateBinary();}
-    motorCommand_t(byte_t d, byte_t t) : dir(d), timeout(t) {xUpdatingSemaphore = xSemaphoreCreateBinary();}
+    motorCommand_t() : dir(0), timeout(0) {xUpdatingSemaphore = xSemaphoreCreateBinary(); xSemaphoreGive(xUpdatingSemaphore);}
+    motorCommand_t(byte_t d, byte_t t) : dir(d), timeout(t) {xUpdatingSemaphore = xSemaphoreCreateBinary(); xSemaphoreGive(xUpdatingSemaphore);}
     void setMotorSpeed(byte_t d, byte_t t)
     {
         // Wait for the semaphore to be available
@@ -56,7 +56,7 @@ public:
     }
 private:
     SemaphoreHandle_t xUpdatingSemaphore; // Used to ensure atomic access to the motor commands
-    byte_t dir;
-    byte_t timeout;
+    volatile byte_t dir;
+    volatile byte_t timeout;
 };
 #endif // CUSTOM_TYPES_HPP
