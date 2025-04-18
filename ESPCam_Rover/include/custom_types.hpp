@@ -54,6 +54,22 @@ public:
             xSemaphoreGive(xUpdatingSemaphore);
         }
     }
+    void getMotorSpeedTimeout(byte_t* d, byte_t* t)
+    {
+        // Wait for the semaphore to be available
+        if (xSemaphoreTake(xUpdatingSemaphore, portMAX_DELAY) == pdTRUE)
+        {
+            // Get the motor command
+            *d = dir;
+            *t = timeout;
+
+            if (timeout > 0)
+                timeout--;
+
+            // Give the semaphore back
+            xSemaphoreGive(xUpdatingSemaphore);
+        }
+    }
 private:
     SemaphoreHandle_t xUpdatingSemaphore; // Used to ensure atomic access to the motor commands
     volatile byte_t dir;

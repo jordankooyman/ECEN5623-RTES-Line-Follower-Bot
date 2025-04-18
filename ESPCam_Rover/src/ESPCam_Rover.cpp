@@ -21,7 +21,7 @@
 
 // Constants
 #define SHIFT_REG_BITS (8)
-#define MANUAL_CONTROL_TIMEOUT (25) // How many motor ticks to wait before current command expires
+#define MANUAL_CONTROL_TIMEOUT (5) // How many motor ticks to wait before current command expires
 
 
 // Global Variables
@@ -234,7 +234,7 @@ void vPrvControlMotors(void *pvParameters)
     {
         byte_t dir;
         byte_t timeout; // How many motor ticks to wait before current command expires
-        motorCommand.getMotorSpeed(&dir, &timeout);
+        motorCommand.getMotorSpeedTimeout(&dir, &timeout);
 
         if (timeout > 0)
             timeout--;
