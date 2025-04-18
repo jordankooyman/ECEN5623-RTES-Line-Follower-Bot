@@ -35,7 +35,7 @@ motorCommand_t motorCommand;
 volatile byte_t LedBits; 
 #ifndef SHIFT_LED_DISPLAY
     CRGB leds[PIXEL_COUNT];
-    CRGB currentColor = CRGB::Turquoise;
+    CRGB currentColor = CRGB::Teal;
 #endif
 
 // Function Prototypes
@@ -63,6 +63,7 @@ void setup()
         fill_solid(leds, PIXEL_COUNT, CRGB::BlueViolet);
         FastLED.setBrightness(100);
         FastLED.show();
+        delay(1000); // Startup delay for show
     #endif
     pinMode(SHIFT_CLK, OUTPUT);
     pinMode(LATCH_PIN, OUTPUT);

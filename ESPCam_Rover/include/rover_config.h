@@ -119,13 +119,13 @@ enum ButtonBits {
 #else // NeoPixel/WS2812b Display (NYI)
     enum LEDBits {
         LED_NORTH = 1,
-        LED_NORTHEAST = 3,
-        LED_EAST = 5,
-        LED_SOUTHEAST = 7,
+        LED_NORTHEAST = 15,
+        LED_EAST = 13,
+        LED_SOUTHEAST = 11,
         LED_SOUTH = 9,
-        LED_SOUTHWEST = 11,
-        LED_WEST = 13,
-        LED_NORTHWEST = 15
+        LED_SOUTHWEST = 7,
+        LED_WEST = 5,
+        LED_NORTHWEST = 3
     };
     #define LED_COUNT (8)
     #define PIXEL_COUNT (16)
