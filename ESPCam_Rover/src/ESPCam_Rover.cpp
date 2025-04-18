@@ -2,6 +2,10 @@
 // ESPCam Camera Line Following Real-time Rover
 // Using the AI Thinker ESP32-CAM microcontroller
 // Written by Jordan Kooyman (jordan.kooyman@colorado.edu) ~and Eric Percin (eric.percin@colorado.edu)
+// @brief This project implements a real-time line-following rover using the AI Thinker ESP32-CAM microcontroller using Rate Monotonic principles.
+// It integrates motor control, shift register handling, camera parsing, and controller parsing tasks using FreeRTOS.
+// The rover processes input from a shift register and optionally a camera or controller to determine motor commands,
+// enabling autonomous navigation or manual control.
 // Last modified on 4/18/2025
 
 // Includes
@@ -43,6 +47,12 @@ byte_t xPrvParseButtons();
 
 
 // Function Definitions
+/**
+ * Setup function for the ESP32-CAM Rover.
+ * Initializes motor control pins, shift register pins, and creates tasks for various services.
+ * The function also sets the initial states for the motors and the shift registers.
+ * Written by Jordan Kooyman
+ */
 void setup()
 {
     // Initialize motor control pins
@@ -90,10 +100,26 @@ void setup()
     xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);
 }
 
+/**
+ * Main loop function for the ESP32-CAM Rover.
+ * The function does nothing and is used to keep the initial thread running.
+ * All services are handled in their respective tasks.
+ */
 void loop() {
     // Do Nothing
 }
 
+
+/**
+ * Reads the shift register and updates the motor control based on button states.
+ * The function uses bitwise operations to check which buttons are pressed and sets the motor speed
+ * accordingly. The function runs in a loop with a specified period, allowing for periodic updates.
+ * Written by Jordan Kooyman
+ *
+ * @param pvParameters In the provided code snippet, the function `vPrvRunShiftRegisters` takes a void
+ * pointer `pvParameters` as a parameter. In this specific implementation, the `pvParameters` is not
+ * being used within the function.
+ */
 void vPrvRunShiftRegisters(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -167,6 +193,14 @@ void vPrvRunShiftRegisters(void *pvParameters)
 }
 
 
+/**
+ * Parses the button states from the shift register and returns the corresponding direction.
+ * The function uses bitwise operations to check which buttons are pressed and assigns a direction
+ * based on the button states. The function returns a byte_t value representing the direction.
+ * Written by Jordan Kooyman
+ *
+ * @return byte_t representing the direction based on button states.
+ */
 byte_t xPrvParseButtons()
 {
     byte_t buttonDirection = Stop;
@@ -181,6 +215,19 @@ byte_t xPrvParseButtons()
 }
 
 
+
+/**
+ * Controls the speed and direction of motors based on received commands and updates the motor outputs periodically.
+ * Reads the motor direction from a global motorCommand object, which is updated by other tasks.
+ * Uses the motor direction to set the speed and direction of the left and right motors using hardcoded PWM signals,
+ * split into 8 distinct directions (North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest).
+ * Written by Jordan Kooyman
+ *
+ * 
+ * @param pvParameters In the provided code snippet, the function `vPrvControlMotors` takes a void
+ * pointer `pvParameters` as a parameter. In this specific implementation, the `pvParameters` is not
+ * being used within the function.
+ */
 void vPrvControlMotors(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -314,6 +361,15 @@ void vPrvControlMotors(void *pvParameters)
     }
 }
 
+/**
+ * The function `vPrvCameraParse` is a placeholder for camera parsing logic that runs periodically.
+ * It uses FreeRTOS to manage timing and task scheduling.
+ * Written by Eric Percin
+ * 
+ * @param pvParameters In the provided code snippet, the function `vPrvCameraParse` takes a void
+ * pointer `pvParameters` as a parameter. In this specific implementation, the `pvParameters` is not
+ * being used within the function.
+ */
 void vPrvCameraParse(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -327,6 +383,17 @@ void vPrvCameraParse(void *pvParameters)
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
     }
 }
+
+
+/**
+ * The function `vPrvCameraParse` is a placeholder for camera parsing logic that runs periodically.
+ * It uses FreeRTOS to manage timing and task scheduling.
+ * Written by Eric Percin
+ * 
+ * @param pvParameters In the provided code snippet, the function `vPrvCameraParse` takes a void
+ * pointer `pvParameters` as a parameter. In this specific implementation, the `pvParameters` is not
+ * being used within the function.
+ */
 void vPrvControllerParse(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();

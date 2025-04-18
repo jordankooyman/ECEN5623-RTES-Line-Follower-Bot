@@ -7,6 +7,7 @@
 
 #ifndef ROVER_CONFIG_H
 #define ROVER_CONFIG_H
+
 // Service Configurations (2 cores, Core0 must be used for Wifi/Bluetooth - 320KB RAM available total)
 #define SHIFT_REG_SERVICE_STACK_SIZE (2048) // Stack size (words) for the shift register service task
 #define SHIFT_REG_SERVICE_PERIOD_MS (100) // Period for the shift register service task
