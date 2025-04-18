@@ -86,16 +86,13 @@ void setup()
     analogWrite(MOTOR_RSPEED, MOTOR_STOP);
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
 
-    LedBits = 3; 
+    LedBits = 0; 
 
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
-    /*xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
+    xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService, CAMERA_SERVICE_CORE);
-    xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);*/
-    //xTaskCreate(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService);
-    //xTaskCreate(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService);
-    //xTaskCreate(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService);
+    xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);
 }
 
 /**
@@ -171,7 +168,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
             #ifdef ENABLE_FLASH_LED
                 digitalWrite(FLASH_LED, prevPinState);
             #else
-                //digitalWrite(FLASH_LED, LOW);
+                digitalWrite(FLASH_LED, LOW);
             #endif
         #elif defined(ENABLE_FLASH_LED)
             // Restore the flash LED state
@@ -186,11 +183,8 @@ void vPrvRunShiftRegisters(void *pvParameters)
         // Update motor state
         motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
 
-        LedBits = ledStates << 1;
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
-        if (LedBits == 0)
-            LedBits = 1;
     }
 }
 
@@ -237,7 +231,7 @@ void vPrvControlMotors(void *pvParameters)
     bool RunMotors = true;
     bool MotorStateChanged = false;
     while(true)
-    {/*
+    {
         byte_t dir;
         byte_t timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeed(&dir, &timeout);
@@ -357,8 +351,8 @@ void vPrvControlMotors(void *pvParameters)
         digitalWrite(MOTOR_LDIR, leftDir);
         analogWrite(MOTOR_RSPEED, rightSpeed);
         digitalWrite(MOTOR_RDIR, rightDir);
-*/
-        LedBits = 0;//ledBits;
+
+        LedBits = ledBits;
 
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);

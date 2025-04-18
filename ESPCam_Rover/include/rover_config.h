@@ -9,11 +9,11 @@
 #define ROVER_CONFIG_H
 
 // Service Configurations (2 cores, Core0 must be used for Wifi/Bluetooth - 320KB RAM available total)
-#define SHIFT_REG_SERVICE_STACK_SIZE (4096) // Stack size (words) for the shift register service task
+#define SHIFT_REG_SERVICE_STACK_SIZE (2048) // Stack size (words) for the shift register service task
 #define SHIFT_REG_SERVICE_PERIOD_MS (100) // Period for the shift register service task
 #define SHIFT_REG_SERVICE_PRIORITY (6) // Priority for the shift register service task
 #define SHIFT_REG_SERVICE_CORE (1) // Core for the shift register service task
-#define MOTOR_SERVICE_STACK_SIZE (10240) // Stack size (words) for the motor control service task
+#define MOTOR_SERVICE_STACK_SIZE (2048) // Stack size (words) for the motor control service task
 #define MOTOR_SERVICE_PERIOD_MS (20) // Period for the motor control service task
 #define MOTOR_SERVICE_PRIORITY (10) // Priority for the motor control service task
 #define MOTOR_SERVICE_CORE (1) // Core for the motor control service task
