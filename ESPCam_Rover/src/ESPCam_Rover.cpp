@@ -6,7 +6,7 @@
 // It integrates motor control, shift register handling, camera parsing, and controller parsing tasks using FreeRTOS.
 // The rover processes input from a shift register and optionally a camera or controller to determine motor commands,
 // enabling autonomous navigation or manual control.
-// Last modified on 4/18/2025
+// Last modified on 4/21/2025
 
 // Includes
 #include <Arduino.h>
@@ -80,6 +80,11 @@ void setup()
         pinMode(FLASH_LED, OUTPUT);
         digitalWrite(FLASH_LED, LOW); // Turn off flash LED
     #endif
+
+    #ifdef RM_ANALYSIS_MODE
+        pinMode(RM_OUTPUT_PIN, OUTPUT);
+        digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin low to indicate the start of the task
+    #endif
     
     // Set default states
     digitalWrite(SHIFT_CLK, HIGH);  // Clock idle state
@@ -124,8 +129,16 @@ void vPrvRunShiftRegisters(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xPeriod = pdMS_TO_TICKS(SHIFT_REG_SERVICE_PERIOD_MS);
+
     while(true)
     {
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
+                #warning    ---   Rate Monotonic Analysis Mode Enabled for Shift Register Service   ---
+                digitalWrite(RM_OUTPUT_PIN, HIGH); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
+
         byte_t buttonStates = 0;
         byte_t ledStates = LedBits;
         #ifdef ENABLE_FLASH_LED
@@ -189,6 +202,12 @@ void vPrvRunShiftRegisters(void *pvParameters)
         // Update motor state
         motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
 
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
+                digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
+
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
     }
@@ -238,6 +257,13 @@ void vPrvControlMotors(void *pvParameters)
     bool MotorStateChanged = false;
     while(true)
     {
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_MOTOR
+                #warning    ---   Rate Monotonic Analysis Mode Enabled for Motor Control Service   ---
+                digitalWrite(RM_OUTPUT_PIN, HIGH); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
+
         byte_t dir;
         byte_t timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeedTimeout(&dir, &timeout);
@@ -390,7 +416,14 @@ void vPrvControlMotors(void *pvParameters)
         analogWrite(MOTOR_RSPEED, rightSpeed);
         digitalWrite(MOTOR_RDIR, rightDir);
 
+        // Update Global LED State Tracking Variable
         LedBits = ledBits;
+
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_MOTOR
+                digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
 
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
@@ -412,8 +445,21 @@ void vPrvCameraParse(void *pvParameters)
     const TickType_t xPeriod = pdMS_TO_TICKS(CAMERA_SERVICE_PERIOD_MS);
     while(true)
     {
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_CAMERA
+                #warning    ---   Rate Monotonic Analysis Mode Enabled for Camera Parsing Service   ---
+                digitalWrite(RM_OUTPUT_PIN, HIGH); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
+
         // Placeholder for camera parsing logic
         // This function should be implemented to handle camera data
+
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_CAMERA
+                digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
 
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
@@ -436,8 +482,21 @@ void vPrvControllerParse(void *pvParameters)
     const TickType_t xPeriod = pdMS_TO_TICKS(CONTROLLER_SERVICE_PERIOD_MS);
     while(true)
     {
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_CONTROLLER
+                #warning    ---   Rate Monotonic Analysis Mode Enabled for Controller Parsing Service   ---
+                digitalWrite(RM_OUTPUT_PIN, HIGH); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
+
         // Placeholder for bluetooth controller parsing logic
         // This function should be implemented to handle controller data
+
+        #ifdef RM_ANALYSIS_MODE
+            #if RM_ANALYSIS_MODE == RM_FOCUS_CONTROLLER
+                digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
+            #endif
+        #endif
 
         // Delay until next period
         vTaskDelayUntil(&xLastWakeTime, xPeriod);

@@ -1,14 +1,15 @@
 // File: rover_config.h
 // Configuration values for the ESPCam Rover, hardware dependent
 // Written by Jordan Kooyman (jordan.kooyman@colorado.edu)
-// Last modified on 4/18/2025
+// Last modified on 4/21/2025
 
 #include <Arduino.h>
 
 #ifndef ROVER_CONFIG_H
 #define ROVER_CONFIG_H
+// ***Basic Configurations***
 
-// Service Configurations (2 cores, Core0 must be used for Wifi/Bluetooth - 320KB RAM available total)
+//---Service Configurations--- (2 cores, Core0 must be used for Wifi/Bluetooth - 320KB RAM available total)
 #define SHIFT_REG_SERVICE_STACK_SIZE (2048) // Stack size (words) for the shift register service task
 #define SHIFT_REG_SERVICE_PERIOD_MS (100) // Period for the shift register service task
 #define SHIFT_REG_SERVICE_PRIORITY (6) // Priority for the shift register service task
@@ -26,7 +27,18 @@
 #define CONTROLLER_SERVICE_PRIORITY (8) // Priority for the controller parsing service task
 #define CONTROLLER_SERVICE_CORE (0) // Core for the controller parsing service task (must be core 0 for Bluetooth)
 
-// Pin definitions
+//---Rate Monotonic Analysis Mode---
+// Available tasks to monitor
+#define RM_FOCUS_SHIFT_REG (1)
+#define RM_FOCUS_MOTOR (2)
+#define RM_FOCUS_CAMERA (3)
+#define RM_FOCUS_CONTROLLER (4)
+// Analysis mode configurations
+//#define RM_ANALYSIS_MODE (RM_FOCUS_MOTOR) // Comment out to disable, or set to the value of the desired task to monitor
+#define RM_ANALYSIS_PRIORITY_OVERRIDE (50) // Comment out to disable, or set to a priority greater than all others in the system to assign to desired task
+#define RM_OUTPUT_PIN (1) // TX Pin for the ESP32-CAM (GPIO 1) - used for timing output in analysis mode
+
+//---Pin definitions---
 #define MOTOR_LSPEED (12)
 #define MOTOR_LDIR (13)
 #define MOTOR_RSPEED (14)
@@ -39,7 +51,7 @@
 
 //#define ENABLE_FLASH_LED
 
-// Motor Speed Configurations
+//---Motor Speed Configurations---
 #define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
 #ifdef J_ROVER
@@ -92,6 +104,10 @@
 #define RIGHT_MAX_SPEED 255
 
 
+// ***System Configurations***
+// Do not modify these values unless you know what you're doing
+
+
 // Button bit positions in the shift register (tested, calibrated)
 enum ButtonBits {
     BTN_UP = 7,
@@ -116,7 +132,7 @@ enum ButtonBits {
         LED_NORTHWEST = 5
     };
     #define LED_COUNT (8)
-#else // NeoPixel/WS2812b Display (NYI)
+#else // NeoPixel/WS2812b Display LED ordering
     enum LEDBits {
         LED_NORTH = 1,
         LED_NORTHEAST = 15,
@@ -136,8 +152,32 @@ enum ButtonBits {
 #endif
 
 
-// Validate Motor Speed Configurations
-// Helper macros for range checking
+// ***Preprocessor Checks & Updates***
+
+
+//--Modify task priority if requested in analysis mode-- (breaks RM rules, but allows for analysis of the task in isolation)
+#ifdef RM_ANALYSIS_MODE
+    #warning    ---   Rate Monotonic Analysis Mode Enabled   ---
+    #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG && defined(RM_ANALYSIS_PRIORITY_OVERRIDE)
+        #undef SHIFT_REG_SERVICE_PRIORITY
+        #define SHIFT_REG_SERVICE_PRIORITY (RM_ANALYSIS_PRIORITY_OVERRIDE)
+    #endif
+    #if RM_ANALYSIS_MODE == RM_FOCUS_MOTOR && defined(RM_ANALYSIS_PRIORITY_OVERRIDE)
+        #undef MOTOR_SERVICE_PRIORITY
+        #define MOTOR_SERVICE_PRIORITY (RM_ANALYSIS_PRIORITY_OVERRIDE)
+    #endif
+    #if RM_ANALYSIS_MODE == RM_FOCUS_CAMERA && defined(RM_ANALYSIS_PRIORITY_OVERRIDE)
+        #undef CAMERA_SERVICE_PRIORITY
+        #define CAMERA_SERVICE_PRIORITY (RM_ANALYSIS_PRIORITY_OVERRIDE)
+    #endif
+    #if RM_ANALYSIS_MODE == RM_FOCUS_CONTROLLER && defined(RM_ANALYSIS_PRIORITY_OVERRIDE)
+        #undef CONTROLLER_SERVICE_PRIORITY
+        #define CONTROLLER_SERVICE_PRIORITY (RM_ANALYSIS_PRIORITY_OVERRIDE)
+    #endif
+#endif
+
+//--Validate Motor Speed Configurations--
+// Helper macro for range checking
 #define CHECK_SPEED(val, min, max) static_assert((val) >= min && (val) <= max, "Motor speed " #val " out of range [" #min " - " #max "]")
 // Check each speed definition
 CHECK_SPEED(L_N_SPD, LEFT_MIN_SPEED, LEFT_MAX_SPEED);
