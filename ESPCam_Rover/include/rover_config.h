@@ -51,6 +51,8 @@
 
 //#define ENABLE_FLASH_LED
 
+#define SHIFT_LED_DISPLAY // Comment out to use WS2812b/NeoPixel display for directions instead of shift register display ring
+
 //---Motor Speed Configurations---
 #define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
@@ -119,7 +121,6 @@ enum ButtonBits {
 #define BTN_COUNT (5)
 
 // LED bit positions in the shift register (tested, calibrated)
-#define SHIFT_LED_DISPLAY
 #ifdef SHIFT_LED_DISPLAY
     enum LEDBits {
         LED_NORTH = 7,
