@@ -200,13 +200,9 @@ void setup() {
     pinMode(FLASH_LED, OUTPUT);
 
     //Serial.println("Initializing camera...");
-    initCamera();
+    initCamera(); // Must happen before motor control or init fails
     //Serial.println("Camera initialized.");
-
     
-
-
-  
     // Initialize motor control pins
     pinMode(MOTOR_LSPEED, OUTPUT);
     pinMode(MOTOR_LDIR, OUTPUT);
@@ -239,7 +235,7 @@ void setup() {
 
 }
 
-
+// NAN -> error or no line detected, otherwise returns angle in [-45.0, 45.0] degrees
 float detectLine() {
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb) {
@@ -296,8 +292,8 @@ float detectLine() {
 // Map the angle from detectLine to motor movement
 void steerLineFollower(float angle) {
   // angle: –45…+45 degrees
-  const int baseSpeed = 150;
-  // convert ±45° → ±baseSpeed
+  const int baseSpeed = 60;
+
   int correction = (int)(angle / 45.0f * baseSpeed);
   int ls = baseSpeed + correction;
   int rs = baseSpeed - correction;
@@ -510,40 +506,3 @@ void loop() {
     // Small delay to debounce
     delay(50);
 }
-
-// Temporary camera test loop
-/*
-void loop() {
-
-  //digitalWrite(FLASH_LED, HIGH);
-  //delay(100);
-  //digitalWrite(FLASH_LED, LOW);
-
-  float angle = detectLine();
-  if (isnan(angle)) {
-    Serial.println("No line detected.");
-  } else {
-    Serial.print("Detected angle: ");
-    Serial.println(angle);
-  }
-
-
-  LedBits = 0;
-  if (isnan(angle)) {
-    LedBits = (1 << LED_SOUTH);
-  }
-  else if (angle < -10.0f) {
-    LedBits = (1 << LED_EAST);
-  }
-  else if (angle > 10.0f) {
-    LedBits = (1 << LED_WEST);
-  }
-  else {
-    LedBits = (1 << LED_NORTH);
-  }
-  runShiftRegisters();
-
-
-  delay(500);
-}
-*/
