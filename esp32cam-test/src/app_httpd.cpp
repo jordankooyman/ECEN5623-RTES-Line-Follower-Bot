@@ -22,6 +22,10 @@
 #include <driver/ledc.h>     // For low-level LEDC control
 #include <esp_camera.h>      // For camera functions
 #include <Arduino.h>         // For ledcAttachPin() and pinMode()
+#include "fb_gfx.h"          // To overlay image on http server
+#include "line_algorithm.h"
+
+
 
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
@@ -181,6 +185,10 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     return ESP_FAIL;
   }
 
+  // Analyze the frame for line following
+  float turn_angle = get_line_angle_from_frame(fb);
+  Serial.printf("Turn: %.2f degrees\n", turn_angle);
+
   httpd_resp_set_type(req, "image/jpeg");
   httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -231,6 +239,8 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     return res;
   }
 
+  vTaskDelay(200 / portTICK_PERIOD_MS); // ~ 5 FPS for testing with Bluetooth
+  
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "X-Framerate", "60");
 
@@ -240,6 +250,9 @@ static esp_err_t stream_handler(httpd_req_t *req) {
 #endif
 
   while (true) {
+
+    vTaskDelay(200 / portTICK_PERIOD_MS); // Limit FPS
+
     fb = esp_camera_fb_get();
     if (!fb) {
       log_e("Camera capture failed");
@@ -247,18 +260,20 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     } else {
       _timestamp.tv_sec = fb->timestamp.tv_sec;
       _timestamp.tv_usec = fb->timestamp.tv_usec;
-      if (fb->format != PIXFORMAT_JPEG) {
+      if (fb->format == PIXFORMAT_GRAYSCALE) {
+        // Overlay angle and convert
+        get_line_angle_from_frame(fb);
         bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
         esp_camera_fb_return(fb);
         fb = NULL;
         if (!jpeg_converted) {
-          log_e("JPEG compression failed");
-          res = ESP_FAIL;
+            log_e("JPEG compression failed");
+            res = ESP_FAIL;
         }
-      } else {
+    } else if (fb->format == PIXFORMAT_JPEG) {
         _jpg_buf_len = fb->len;
         _jpg_buf = fb->buf;
-      }
+    }
     }
     if (res == ESP_OK) {
       res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
@@ -854,3 +869,4 @@ void setupLedFlash(int pin) {
   log_i("LED flash is disabled -> CONFIG_LED_ILLUMINATOR_ENABLED = 0");
 #endif
 }
+
