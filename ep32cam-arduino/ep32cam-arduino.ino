@@ -5,7 +5,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include "esp_camera.h"
-#include <Bluepad32.h>
+
 
 // Pin definitions
 #define MOTOR_LSPEED (12)
@@ -40,10 +40,6 @@
 // Constants
 #define SHIFT_REG_BITS (8)
 
-
-// Bluetooth controller definitions and globals
-#define DEADZONE 100
-ControllerPtr myControllers[BP32_MAX_CONTROLLERS];
 
 // Motor Speed Configurations
 #define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
@@ -173,60 +169,29 @@ void initCamera() {
   config.fb_count = 1;
 
   esp_err_t err = esp_camera_init(&config);
-
-  //Slow flash -> init failed. Rapid flash -> ok!
   if (err != ESP_OK) {
     // halt + blink only the flash LED
+    pinMode(FLASH_LED, OUTPUT);
     while (true) {
       digitalWrite(FLASH_LED, HIGH);
-      delay(900);
+      delay(2000);
       digitalWrite(FLASH_LED, LOW);
       delay(100);
     }
   }
-  else {
-    for (int i = 0; i < 5; i++) {
-      digitalWrite(FLASH_LED, HIGH);
-      delay(100);
-      digitalWrite(FLASH_LED, LOW);
-      delay(100);
-    }
-
-  }
 }
 
-
-void onConnectedController(ControllerPtr ctl) {
-  for (int i = 0; i < BP32_MAX_CONTROLLERS; i++) {
-    if (!myControllers[i]) {
-      myControllers[i] = ctl;
-      Serial.print("Controller slot "); Serial.print(i); Serial.println(" connected");
-      break;
-    }
-  }
-}
-void onDisconnectedController(ControllerPtr ctl) {
-  for (int i = 0; i < BP32_MAX_CONTROLLERS; i++) {
-    if (myControllers[i] == ctl) {
-      myControllers[i] = nullptr;
-      Serial.print("Controller slot "); Serial.print(i); Serial.println(" disconnected");
-      break;
-    }
-  }
-}
 
 void setup() {
 
-    //Serial.begin(115200);
-    //delay(2000); 
+    Serial.begin(115200);
+    delay(2000); 
+
+    Serial.println("Initializing camera...");
+    initCamera();
+    Serial.println("Camera initialized.");
 
     pinMode(FLASH_LED, OUTPUT);
-
-    //Serial.println("Initializing camera...");
-    initCamera();
-    //Serial.println("Camera initialized.");
-
-    
 
 
   
@@ -254,15 +219,19 @@ void setup() {
     digitalWrite(MOTOR_LDIR, LEFT_FORWARD);
     analogWrite(MOTOR_RSPEED, MOTOR_STOP);
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
+    
+    //Serial.begin(115200); // If using serial, can only receive (cannot send any data, ESP RX Pin is used as LATCH_PIN)
+    //Serial.println("ESP32-CAM Shift Register Test");
 
     ButtonBits = 0;
     #ifdef SHIFT_LED_DISPLAY
         LedBits = 0; 
     #endif
 
-    // Bluepad32 init
-    BP32.setup(&onConnectedController, &onDisconnectedController);
-    BP32.forgetBluetoothKeys();
+
+    
+    
+
 
 }
 
@@ -404,29 +373,6 @@ byte_t parseButtons()
 }
 
 
-byte_t parseController(ControllerPtr gp) {
-    byte_t buttonDirection = Stop;
-
-    uint16_t btn = gp->buttons();
-    int16_t  ax  = gp->axisX();  // –512…+512
-
-    // A → forward
-    if (btn & 0x0002) buttonDirection += North;  
-
-    // B → backward
-    if (btn & 0x0001) buttonDirection += South;  
-
-    // X → MotorsOff (toggle manual/auto in your controlMotors logic)
-    if (btn & 0x0008) buttonDirection += MotorsOff;
-
-    // Stick left/right → steer
-    if (ax <  -DEADZONE) buttonDirection += West;
-    if (ax >   DEADZONE) buttonDirection += East;
-
-    return buttonDirection;
-}
-
-
 void controlMotors(byte_t dir)
 {
     // toggle manual <-> auto on MODE press
@@ -555,10 +501,45 @@ void loop() {
     runShiftRegisters();
 
     // Parse Button States
-    controlMotors(parseController());
-
-    BP32.update();
+    controlMotors(parseButtons());
     
     // Small delay to debounce
     delay(50);
 }
+
+// Temporary camera test loop
+/*
+void loop() {
+
+  //digitalWrite(FLASH_LED, HIGH);
+  //delay(100);
+  //digitalWrite(FLASH_LED, LOW);
+
+  float angle = detectLine();
+  if (isnan(angle)) {
+    Serial.println("No line detected.");
+  } else {
+    Serial.print("Detected angle: ");
+    Serial.println(angle);
+  }
+
+
+  LedBits = 0;
+  if (isnan(angle)) {
+    LedBits = (1 << LED_SOUTH);
+  }
+  else if (angle < -10.0f) {
+    LedBits = (1 << LED_EAST);
+  }
+  else if (angle > 10.0f) {
+    LedBits = (1 << LED_WEST);
+  }
+  else {
+    LedBits = (1 << LED_NORTH);
+  }
+  runShiftRegisters();
+
+
+  delay(500);
+}
+*/
