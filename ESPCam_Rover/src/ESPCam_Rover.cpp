@@ -32,6 +32,7 @@ static TaskHandle_t cameraParsingService = NULL;
 static TaskHandle_t controllerParsingService = NULL;
 // Global State Trackers
 motorCommand_t motorCommand;
+volatile bool autonomousMode = false; // Flag to indicate if the rover is in autonomous mode
 volatile byte_t LedBits; 
 #ifndef SHIFT_LED_DISPLAY
     CRGB leds[PIXEL_COUNT];
@@ -199,8 +200,9 @@ void vPrvRunShiftRegisters(void *pvParameters)
         // Parse button states
         byte_t buttonDirection = xPrvParseButtons(buttonStates);
 
-        // Update motor state
-        motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+        // Update motor state if in manual mode
+        if(!autonomousMode)
+            motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
@@ -225,12 +227,26 @@ void vPrvRunShiftRegisters(void *pvParameters)
 byte_t xPrvParseButtons(byte_t ButtonBits)
 {
     byte_t buttonDirection = Stop;
+    static bool buttonStateChanged = false;
 
     if (ButtonBits & (1 << BTN_UP))     buttonDirection += North;
     if (ButtonBits & (1 << BTN_DOWN))   buttonDirection += South;
     if (ButtonBits & (1 << BTN_LEFT))   buttonDirection += West;
     if (ButtonBits & (1 << BTN_RIGHT))  buttonDirection += East;
-    if (ButtonBits & (1 << BTN_MODE))   buttonDirection += MotorsOff;
+    
+    if (ButtonBits & (1 << BTN_MODE))   
+    {
+        if (!buttonStateChanged) // Only toggle once per button press
+        {
+            buttonStateChanged = true; // Set state
+            autonomousMode = !autonomousMode; // Toggle autonomous mode
+        }
+        
+    }
+    else
+    {
+        buttonStateChanged = false; // Reset state
+    }
 
     return buttonDirection;
 }
@@ -254,7 +270,7 @@ void vPrvControlMotors(void *pvParameters)
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xPeriod = pdMS_TO_TICKS(MOTOR_SERVICE_PERIOD_MS);
     bool RunMotors = true;
-    bool MotorStateChanged = false;
+    
     while(true)
     {
         #ifdef RM_ANALYSIS_MODE
@@ -272,18 +288,6 @@ void vPrvControlMotors(void *pvParameters)
             timeout--;
         else
             dir = Stop;
-
-        if (dir >= MotorsOff)
-        {
-            if (!MotorStateChanged)
-            {
-                RunMotors = !RunMotors;
-                MotorStateChanged = true;
-            }
-            dir -= MotorsOff;
-        }
-        else
-            MotorStateChanged = false;
 
         byte_t leftSpeed = MOTOR_STOP;
         byte_t rightSpeed = MOTOR_STOP;

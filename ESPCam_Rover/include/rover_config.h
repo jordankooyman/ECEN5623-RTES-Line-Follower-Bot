@@ -34,7 +34,7 @@
 #define RM_FOCUS_CAMERA (3)
 #define RM_FOCUS_CONTROLLER (4)
 // Analysis mode configurations
-//#define RM_ANALYSIS_MODE (RM_FOCUS_MOTOR) // Comment out to disable, or set to the value of the desired task to monitor
+//#define RM_ANALYSIS_MODE (RM_FOCUS_SHIFT_REG) // Comment out to disable, or set to the value of the desired task to monitor
 #define RM_ANALYSIS_PRIORITY_OVERRIDE (50) // Comment out to disable, or set to a priority greater than all others in the system to assign to desired task
 #define RM_OUTPUT_PIN (1) // TX Pin for the ESP32-CAM (GPIO 1) - used for timing output in analysis mode
 
