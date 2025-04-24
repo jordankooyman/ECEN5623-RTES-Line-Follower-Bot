@@ -18,6 +18,8 @@
 #include "rover_config.h"
 #include "custom_types.hpp"
 #include <Bluepad32.h>
+#include "esp_camera.h"
+
 
 // Constants
 #define SHIFT_REG_BITS (8)
@@ -51,7 +53,7 @@ byte_t xPrvParseButtons(byte_t ButtonBits);
 
 
 #ifdef BLUETOOTH_CONTROLLER
-// Global controlle pointer
+// Global controller pointer
 ControllerPtr activeController = nullptr;
 
 // Controller connected callback
@@ -70,12 +72,6 @@ void onDisconnectedController(ControllerPtr ctl) {
     if (activeController == ctl) {
         activeController = nullptr;
     }
-}
-
-// Bluetooth setup
-void bluetooth_setup() {
-    BP32.setup(&onConnectedController, &onDisconnectedController);
-    //BP32.forgetBluetoothKeys();  // Clears old pairings
 }
 #endif
 
@@ -98,7 +94,7 @@ void setup()
         FastLED.show();
         delay(1000); // Startup delay for show
     #endif
-    pinMode(SHIFT_CLK, OUTPUT);
+    pinMode(SHIFT_CLK, OUTPUT);   // This line appears to interfere with camera capture
     pinMode(LATCH_PIN, OUTPUT);
     pinMode(DATA_IN, INPUT);
 
@@ -131,14 +127,60 @@ void setup()
 
     LedBits = 0; 
 
+
     #ifdef BLUETOOTH_CONTROLLER
         BP32.setup(&onConnectedController, &onDisconnectedController);
         //BP32.forgetBluetoothKeys();  // Clear old pairings
     #endif
 
+    /*
+    #ifdef BLUETOOTH_CONTROLLER
+        BP32.setup(&onConnectedController, &onDisconnectedController);
 
+        while (!activeController || !activeController->isConnected()) {
+            BP32.update();  
+            delay(50);     
+        }
+        //BP32.forgetBluetoothKeys();  // Clear old pairings
+    #endif
+*/
 
+/*
+    camera_config_t config;
+    config.ledc_channel = LEDC_CHANNEL_0;
+    config.ledc_timer = LEDC_TIMER_0;
+    config.pin_d0 = Y2_GPIO_NUM;
+    config.pin_d1 = Y3_GPIO_NUM;
+    config.pin_d2 = Y4_GPIO_NUM;
+    config.pin_d3 = Y5_GPIO_NUM;
+    config.pin_d4 = Y6_GPIO_NUM;
+    config.pin_d5 = Y7_GPIO_NUM;
+    config.pin_d6 = Y8_GPIO_NUM;
+    config.pin_d7 = Y9_GPIO_NUM;
+    config.pin_xclk = XCLK_GPIO_NUM;
+    config.pin_pclk = PCLK_GPIO_NUM;
+    config.pin_vsync = VSYNC_GPIO_NUM;
+    config.pin_href = HREF_GPIO_NUM;
+    config.pin_sscb_sda = SIOD_GPIO_NUM;
+    config.pin_sscb_scl = SIOC_GPIO_NUM;
+    config.pin_pwdn = PWDN_GPIO_NUM;
+    config.pin_reset = RESET_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_GRAYSCALE;
+    config.frame_size = FRAMESIZE_96X96;
+    config.jpeg_quality = 12;
+    config.fb_count = 3;
+    config.grab_mode = CAMERA_GRAB_LATEST;
+    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
 
+    // Init camera
+    esp_err_t err = esp_camera_init(&config);
+    if (err != ESP_OK) {
+       // Serial.printf("Camera init failed with error 0x%x", err);
+        return;
+    }
+    sensor_t *s = esp_camera_sensor_get();
+*/
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
@@ -481,6 +523,56 @@ void vPrvControlMotors(void *pvParameters)
     }
 }
 
+
+/**
+ * The function `get_line_angle_from_frame` is a helper function for vPrvCameraParse
+ * It accepts a frame buffer and, using average brightness, detects a line
+ * and returns an estimated angle at which the rover must turn for the line to 
+ * become centered in the frame
+ * Written by Eric Percin
+ * 
+ * @param fb A camera_fb_t frame buffer, currently grayscale and 96x96
+ * @return A float angle in degrees representing the direction to turn.
+ *         Positive values indicate turning right, negative values indicate
+ *         turning left. Returns NAN if no line is detected, or frame is invalid.
+ */
+float get_line_angle_from_frame(camera_fb_t *fb) {
+    if (!fb || fb->format != PIXFORMAT_GRAYSCALE || !fb->buf || fb->len == 0)
+    return NAN; // Invalid frame
+
+    const int w = fb->width;
+    const int h = fb->height;
+    const int scan_start = h - 20;
+    const int scan_end = h - 10;
+
+    uint32_t weighted_sum = 0;
+    uint32_t count = 0;
+
+    // Scan for dark pixels
+    for (int y = scan_start; y <= scan_end; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int idx = y * w + x;
+            if (idx >= fb->len) break;
+            if (fb->buf[idx] < 100) {
+                weighted_sum += x;
+                count++;
+            }
+        }
+    }
+
+    if (count == 0) 
+    return NAN; // No line found
+    
+    // Compute angle from center
+    float center_x = float(weighted_sum) / float(count);
+    float error = (center_x - (w / 2.0f)) / (w / 2.0f);
+    float angle = error * 45.0f;
+
+    return angle;
+}
+
+
+
 /**
  * The function `vPrvCameraParse` is a placeholder for camera parsing logic that runs periodically.
  * It uses FreeRTOS to manage timing and task scheduling.
@@ -503,8 +595,32 @@ void vPrvCameraParse(void *pvParameters)
             #endif
         #endif
 
-        // Placeholder for camera parsing logic
-        // This function should be implemented to handle camera data
+/*
+
+        // Camera parsing logic
+        const float ANGLE_THRESHOLD = 20.0f;
+
+        camera_fb_t *fb = esp_camera_fb_get();
+
+        if (fb)
+        {
+            float angle = get_line_angle_from_frame(fb);
+
+            byte_t direction = Stop;
+            if (autonomousMode && !isnan(angle))
+            {
+                // Convert angle to direction 
+                if (angle > ANGLE_THRESHOLD) direction = NorthEast;
+                else if (angle < -ANGLE_THRESHOLD) direction = NorthWest;
+                else direction = North;
+
+                motorCommand.setMotorSpeed(direction, MANUAL_CONTROL_TIMEOUT);
+            }
+
+            // Return the frame buffer to the driver
+            esp_camera_fb_return(fb);
+        }
+*/
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_CAMERA
