@@ -17,7 +17,7 @@
 #endif
 #include "rover_config.h"
 #include "custom_types.hpp"
-
+#include <Bluepad32.h>
 
 // Constants
 #define SHIFT_REG_BITS (8)
@@ -48,6 +48,37 @@ byte_t xPrvParseButtons(byte_t ButtonBits);
 
 
 // Function Definitions
+
+
+#ifdef BLUETOOTH_CONTROLLER
+// Global controlle pointer
+ControllerPtr activeController = nullptr;
+
+// Controller connected callback
+void onConnectedController(ControllerPtr ctl) {
+
+    if (!activeController) {
+        activeController = ctl;
+        
+    } else {
+        ctl->disconnect();  // Force disconnect extra controllers
+    }
+}
+
+// Controller disconnected callback
+void onDisconnectedController(ControllerPtr ctl) {
+    if (activeController == ctl) {
+        activeController = nullptr;
+    }
+}
+
+// Bluetooth setup
+void bluetooth_setup() {
+    BP32.setup(&onConnectedController, &onDisconnectedController);
+    //BP32.forgetBluetoothKeys();  // Clears old pairings
+}
+#endif
+
 /**
  * Setup function for the ESP32-CAM Rover.
  * Initializes motor control pins, shift register pins, and creates tasks for various services.
@@ -56,6 +87,7 @@ byte_t xPrvParseButtons(byte_t ButtonBits);
  */
 void setup()
 {
+
     // Initialize shift register pins
     #ifdef SHIFT_LED_DISPLAY
         pinMode(DATA_OUT, OUTPUT);
@@ -98,6 +130,14 @@ void setup()
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
 
     LedBits = 0; 
+
+    #ifdef BLUETOOTH_CONTROLLER
+        BP32.setup(&onConnectedController, &onDisconnectedController);
+        //BP32.forgetBluetoothKeys();  // Clear old pairings
+    #endif
+
+
+
 
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
@@ -201,8 +241,15 @@ void vPrvRunShiftRegisters(void *pvParameters)
         byte_t buttonDirection = xPrvParseButtons(buttonStates);
 
         // Update motor state if in manual mode
-        if(!autonomousMode)
+        if (
+            !autonomousMode 
+            #ifdef BLUETOOTH_CONTROLLER // But if we have an active bluetooth controller, let it drive
+            && (!activeController || !activeController->isConnected())
+          #endif
+        ) {
             motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+        }
+        
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
@@ -493,8 +540,40 @@ void vPrvControllerParse(void *pvParameters)
             #endif
         #endif
 
-        // Placeholder for bluetooth controller parsing logic
-        // This function should be implemented to handle controller data
+        // Bluetooth controller parsing logic
+        byte_t buttonDirection = Stop;
+        static bool buttonStateChanged = false;
+
+        BP32.update();
+
+        if (activeController && activeController->isConnected())
+        {
+            uint16_t btn = activeController->buttons();
+            int16_t  ax  = activeController->axisX();  // [–512, 512]
+        
+            if (btn & CONTROLLER_A) buttonDirection += North;     // A = Forward
+            if (btn & CONTROLLER_B) buttonDirection += South;     // B = Reverse
+            //if (btn & CONTROLLER_Y)                             // Y is currently unused
+            if (ax < -CONTROLLER_DEADZONE) buttonDirection += West;
+            if (ax > CONTROLLER_DEADZONE) buttonDirection += East;    
+
+            // X toggles autonomous mode (once per press)
+            if (btn & CONTROLLER_X)
+            {
+                if (!buttonStateChanged)
+                {
+                    buttonStateChanged = true;
+                    autonomousMode = !autonomousMode;
+                }
+            }
+            else
+            {
+                buttonStateChanged = false;
+            }
+
+            if(!autonomousMode)
+            motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+        }
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_CONTROLLER

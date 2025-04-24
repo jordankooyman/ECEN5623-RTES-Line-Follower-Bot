@@ -53,8 +53,15 @@
 
 #define SHIFT_LED_DISPLAY // Comment out to use WS2812b/NeoPixel display for directions instead of shift register display ring
 
+#define BLUETOOTH_CONTROLLER // Requires the connection of a Bluetooth controller prior to operation. Comment out to disable
+#define CONTROLLER_DEADZONE (100) // Joystick range of [-512, 512] will ignore any values below this threshold
+#define CONTROLLER_A (0x0002)
+#define CONTROLLER_B (0x0001)
+#define CONTROLLER_X (0x0008)
+#define CONTROLLER_Y (0x0004)
+
 //---Motor Speed Configurations---
-#define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
+#define E_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
 #ifdef J_ROVER
     #define LEFT_FORWARD (HIGH)
