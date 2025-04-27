@@ -87,13 +87,25 @@ void onDisconnectedController(ControllerPtr ctl) {
  */
 void setup()
 {
-
+    // There is some contention on pins and internal peripherals between our shift register, camera, and BP32 instance
+    // This semaphore prevents those three tasks from interrupting each other's critical sections
     ioLock = xSemaphoreCreateMutex();
+
+    #ifdef BLUETOOTH_CONTROLLER
+        // Gives us 30 seconds to make a successful bluetooth connection. Otherwise, proceed w/ wired controller
+        BP32.forgetBluetoothKeys();  
+        BP32.setup(&onConnectedController, &onDisconnectedController);
+        unsigned long start = millis();
+        while ((!activeController || !activeController->isConnected()) && (millis() - start < 30000UL)) {
+            BP32.update();
+            delay(50);
+        }
+    #endif
 
     #ifdef CAMERA_ENABLE
         camera_config_t config;
         config.ledc_channel = LEDC_CHANNEL_0;
-        config.ledc_timer = LEDC_TIMER_0;
+        config.ledc_timer = LEDC_TIMER_1;
         config.pin_d0 = Y2_GPIO_NUM;
         config.pin_d1 = Y3_GPIO_NUM;
         config.pin_d2 = Y4_GPIO_NUM;
@@ -114,7 +126,7 @@ void setup()
         config.pixel_format = PIXFORMAT_GRAYSCALE;
         config.frame_size = FRAMESIZE_96X96;
         config.jpeg_quality = 12;
-        config.fb_count = 3;
+        config.fb_count = 1;
         config.grab_mode = CAMERA_GRAB_LATEST;
         config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
 
@@ -122,6 +134,7 @@ void setup()
         esp_err_t err = esp_camera_init(&config);
         if (err != ESP_OK) {
             // Sometimes the camera init will fail when are peripherals are plugged in
+            // We fixed this by extending the IO3 wire by a few inches...
             pinMode(FLASH_LED, OUTPUT);
             digitalWrite(FLASH_LED, HIGH); 
             return;
@@ -188,19 +201,10 @@ void setup()
 /*
     #ifdef BLUETOOTH_CONTROLLER
         BP32.setup(&onConnectedController, &onDisconnectedController);
-        //BP32.forgetBluetoothKeys();  // Clear old pairings
+        BP32.forgetBluetoothKeys();  // Clear old pairings
     #endif
 */
 
-    #ifdef BLUETOOTH_CONTROLLER
-        BP32.forgetBluetoothKeys();  // Clear old pairings
-        BP32.setup(&onConnectedController, &onDisconnectedController);
-
-        while (!activeController || !activeController->isConnected()) {
-            BP32.update();  
-            delay(50);     
-        }
-    #endif
 
 
     // Create tasks
@@ -635,11 +639,18 @@ void vPrvCameraParse(void *pvParameters)
         // Camera parsing logic
         const float ANGLE_THRESHOLD = 20.0f;
 
+
+       
+
+        
         if (autonomousMode) {
 
+           //motorCommand.setMotorSpeed(North, AUTO_CONTROL_TIMEOUT);
+
             if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
-   
+            
                 camera_fb_t *fb = esp_camera_fb_get();
+                xSemaphoreGive(ioLock);
                 if (fb)
                 {
                     float angle = get_line_angle_from_frame(fb);
@@ -663,12 +674,10 @@ void vPrvCameraParse(void *pvParameters)
                     pinMode(FLASH_LED, OUTPUT);
                     digitalWrite(FLASH_LED, HIGH); 
                 }
-
-                xSemaphoreGive(ioLock);
             }
-
-            
+                   
         }
+         
 
         #endif
 
@@ -712,7 +721,11 @@ void vPrvControllerParse(void *pvParameters)
         byte_t buttonDirection = Stop;
         static bool buttonStateChanged = false;
 
-        BP32.update();
+        if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
+            BP32.update();
+            xSemaphoreGive(ioLock);
+        }
+        
 
         if (activeController && activeController->isConnected())
         {
