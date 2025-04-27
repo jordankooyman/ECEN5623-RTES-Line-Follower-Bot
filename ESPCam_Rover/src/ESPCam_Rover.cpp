@@ -24,9 +24,13 @@
 // Constants
 #define SHIFT_REG_BITS (8)
 #define MANUAL_CONTROL_TIMEOUT (5) // How many motor ticks to wait before current command expires
-
+#define AUTO_CONTROL_TIMEOUT (1) 
 
 // Global Variables
+
+static SemaphoreHandle_t ioLock;
+
+
 // Task handles
 static TaskHandle_t shiftRegService = NULL;
 static TaskHandle_t motorControlService = NULL;
@@ -84,6 +88,47 @@ void onDisconnectedController(ControllerPtr ctl) {
 void setup()
 {
 
+    ioLock = xSemaphoreCreateMutex();
+
+    #ifdef CAMERA_ENABLE
+        camera_config_t config;
+        config.ledc_channel = LEDC_CHANNEL_0;
+        config.ledc_timer = LEDC_TIMER_0;
+        config.pin_d0 = Y2_GPIO_NUM;
+        config.pin_d1 = Y3_GPIO_NUM;
+        config.pin_d2 = Y4_GPIO_NUM;
+        config.pin_d3 = Y5_GPIO_NUM;
+        config.pin_d4 = Y6_GPIO_NUM;
+        config.pin_d5 = Y7_GPIO_NUM;
+        config.pin_d6 = Y8_GPIO_NUM;
+        config.pin_d7 = Y9_GPIO_NUM;
+        config.pin_xclk = XCLK_GPIO_NUM;
+        config.pin_pclk = PCLK_GPIO_NUM;
+        config.pin_vsync = VSYNC_GPIO_NUM;
+        config.pin_href = HREF_GPIO_NUM;
+        config.pin_sscb_sda = SIOD_GPIO_NUM;
+        config.pin_sscb_scl = SIOC_GPIO_NUM;
+        config.pin_pwdn = PWDN_GPIO_NUM;
+        config.pin_reset = RESET_GPIO_NUM;
+        config.xclk_freq_hz = 20000000;
+        config.pixel_format = PIXFORMAT_GRAYSCALE;
+        config.frame_size = FRAMESIZE_96X96;
+        config.jpeg_quality = 12;
+        config.fb_count = 3;
+        config.grab_mode = CAMERA_GRAB_LATEST;
+        config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
+
+        // Init camera
+        esp_err_t err = esp_camera_init(&config);
+        if (err != ESP_OK) {
+            // Sometimes the camera init will fail when are peripherals are plugged in
+            pinMode(FLASH_LED, OUTPUT);
+            digitalWrite(FLASH_LED, HIGH); 
+            return;
+        }
+        sensor_t *s = esp_camera_sensor_get();
+    #endif
+
     // Initialize shift register pins
     #ifdef SHIFT_LED_DISPLAY
         pinMode(DATA_OUT, OUTPUT);
@@ -104,11 +149,24 @@ void setup()
     pinMode(MOTOR_RSPEED, OUTPUT);
     pinMode(MOTOR_RDIR, OUTPUT);
 
+
     #ifdef ENABLE_FLASH_LED
         // Initialize Camera Flash LED pin
         pinMode(FLASH_LED, OUTPUT);
         digitalWrite(FLASH_LED, LOW); // Turn off flash LED
     #endif
+
+
+    // I placed this block here to easily detect a segfault reset. Inadvertently, it resolved the issue I was
+    // facing where the program crashes after 5-20 seconds in autonomous mode. I think it's related to the camera's LEDC
+    // Will look into this as time allows
+    analogWrite(MOTOR_LSPEED, 50);
+    digitalWrite(MOTOR_LDIR, LEFT_FORWARD);
+    analogWrite(MOTOR_RSPEED, 50);
+    digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
+    analogWrite(MOTOR_LSPEED, MOTOR_STOP);
+    analogWrite(MOTOR_RSPEED, MOTOR_STOP);
+
 
     #ifdef RM_ANALYSIS_MODE
         pinMode(RM_OUTPUT_PIN, OUTPUT);
@@ -127,60 +185,24 @@ void setup()
 
     LedBits = 0; 
 
-
+/*
     #ifdef BLUETOOTH_CONTROLLER
         BP32.setup(&onConnectedController, &onDisconnectedController);
         //BP32.forgetBluetoothKeys();  // Clear old pairings
     #endif
+*/
 
-    /*
     #ifdef BLUETOOTH_CONTROLLER
+        BP32.forgetBluetoothKeys();  // Clear old pairings
         BP32.setup(&onConnectedController, &onDisconnectedController);
 
         while (!activeController || !activeController->isConnected()) {
             BP32.update();  
             delay(50);     
         }
-        //BP32.forgetBluetoothKeys();  // Clear old pairings
     #endif
-*/
 
-/*
-    camera_config_t config;
-    config.ledc_channel = LEDC_CHANNEL_0;
-    config.ledc_timer = LEDC_TIMER_0;
-    config.pin_d0 = Y2_GPIO_NUM;
-    config.pin_d1 = Y3_GPIO_NUM;
-    config.pin_d2 = Y4_GPIO_NUM;
-    config.pin_d3 = Y5_GPIO_NUM;
-    config.pin_d4 = Y6_GPIO_NUM;
-    config.pin_d5 = Y7_GPIO_NUM;
-    config.pin_d6 = Y8_GPIO_NUM;
-    config.pin_d7 = Y9_GPIO_NUM;
-    config.pin_xclk = XCLK_GPIO_NUM;
-    config.pin_pclk = PCLK_GPIO_NUM;
-    config.pin_vsync = VSYNC_GPIO_NUM;
-    config.pin_href = HREF_GPIO_NUM;
-    config.pin_sscb_sda = SIOD_GPIO_NUM;
-    config.pin_sscb_scl = SIOC_GPIO_NUM;
-    config.pin_pwdn = PWDN_GPIO_NUM;
-    config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = 20000000;
-    config.pixel_format = PIXFORMAT_GRAYSCALE;
-    config.frame_size = FRAMESIZE_96X96;
-    config.jpeg_quality = 12;
-    config.fb_count = 3;
-    config.grab_mode = CAMERA_GRAB_LATEST;
-    config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
 
-    // Init camera
-    esp_err_t err = esp_camera_init(&config);
-    if (err != ESP_OK) {
-       // Serial.printf("Camera init failed with error 0x%x", err);
-        return;
-    }
-    sensor_t *s = esp_camera_sensor_get();
-*/
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
@@ -222,85 +244,89 @@ void vPrvRunShiftRegisters(void *pvParameters)
             #endif
         #endif
 
-        byte_t buttonStates = 0;
-        byte_t ledStates = LedBits;
-        #ifdef ENABLE_FLASH_LED
-            byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
-        #endif
-        #ifndef SHIFT_LED_DISPLAY
-            // Output data via the WS2812b LED Ring
-            // Clear all LEDs
-            fill_solid(leds, PIXEL_COUNT, CRGB::Black);
+        if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
 
-            // Set the LED corresponding to the current direction to green
-            if (ledStates)
-                leds[ledStates-1] = currentColor; 
-            FastLED.setBrightness(100);
-
-            // Show the updated LED states
-            FastLED.show();
-        #endif
-        // Latch toggle to load parallel data into 74HC165n
-        digitalWrite(LATCH_PIN, LOW);
-        delayMicroseconds(5);  // Small delay for latch to take effect
-        digitalWrite(LATCH_PIN, HIGH);
-        
-        // Read/Write 8 bits from the shift register
-        for (int i = 0; i < SHIFT_REG_BITS; i++) {
-            // Clock low to prepare for reading/writing
-            digitalWrite(SHIFT_CLK, LOW);
-            
-            #ifdef SHIFT_LED_DISPLAY
-                // Write the current bit
-                digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
+            byte_t buttonStates = 0;
+            byte_t ledStates = LedBits;
+            #ifdef ENABLE_FLASH_LED
+                byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
             #endif
+            #ifndef SHIFT_LED_DISPLAY
+                // Output data via the WS2812b LED Ring
+                // Clear all LEDs
+                fill_solid(leds, PIXEL_COUNT, CRGB::Black);
 
-            // Read the current bit and store it
-            buttonStates |= (digitalRead(DATA_IN) << i);
-            
-            // Clock high to shift to next bit
-            digitalWrite(SHIFT_CLK, HIGH);
-        }
-        
-        #ifdef SHIFT_LED_DISPLAY
-            // Latch toggle to save serial data into 74HC595n
+                // Set the LED corresponding to the current direction to green
+                if (ledStates)
+                    leds[ledStates-1] = currentColor; 
+                FastLED.setBrightness(100);
+
+                // Show the updated LED states
+                FastLED.show();
+            #endif
+            // Latch toggle to load parallel data into 74HC165n
             digitalWrite(LATCH_PIN, LOW);
             delayMicroseconds(5);  // Small delay for latch to take effect
             digitalWrite(LATCH_PIN, HIGH);
-            #ifdef ENABLE_FLASH_LED
+            
+            // Read/Write 8 bits from the shift register
+            for (int i = 0; i < SHIFT_REG_BITS; i++) {
+                // Clock low to prepare for reading/writing
+                digitalWrite(SHIFT_CLK, LOW);
+                
+                #ifdef SHIFT_LED_DISPLAY
+                    // Write the current bit
+                    digitalWrite(DATA_OUT, (ledStates >> i) & 0x01);
+                #endif
+
+                // Read the current bit and store it
+                buttonStates |= (digitalRead(DATA_IN) << i);
+                
+                // Clock high to shift to next bit
+                digitalWrite(SHIFT_CLK, HIGH);
+            }
+            
+            #ifdef SHIFT_LED_DISPLAY
+                // Latch toggle to save serial data into 74HC595n
+                digitalWrite(LATCH_PIN, LOW);
+                delayMicroseconds(5);  // Small delay for latch to take effect
+                digitalWrite(LATCH_PIN, HIGH);
+                #ifdef ENABLE_FLASH_LED
+                    digitalWrite(FLASH_LED, prevPinState);
+                #else
+                    digitalWrite(FLASH_LED, LOW);
+                #endif
+            #elif defined(ENABLE_FLASH_LED)
+                // Restore the flash LED state
+                // This is necessary because the flash LED pin is shared with the WS2812b data pin
+                // and the WS2812b library may have changed its state
                 digitalWrite(FLASH_LED, prevPinState);
-            #else
-                digitalWrite(FLASH_LED, LOW);
             #endif
-        #elif defined(ENABLE_FLASH_LED)
-            // Restore the flash LED state
-            // This is necessary because the flash LED pin is shared with the WS2812b data pin
-            // and the WS2812b library may have changed its state
-            digitalWrite(FLASH_LED, prevPinState);
-        #endif
 
-        // Parse button states
-        byte_t buttonDirection = xPrvParseButtons(buttonStates);
+            // Parse button states
+            byte_t buttonDirection = xPrvParseButtons(buttonStates);
 
-        // Update motor state if in manual mode
-        if (
-            !autonomousMode 
-            #ifdef BLUETOOTH_CONTROLLER // But if we have an active bluetooth controller, let it drive
-            && (!activeController || !activeController->isConnected())
-          #endif
-        ) {
-            motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+            // Update motor state if in manual mode
+            if (
+                !autonomousMode 
+                #ifdef BLUETOOTH_CONTROLLER // But if we have an active bluetooth controller, let it drive
+                && (!activeController || !activeController->isConnected())
+                #endif
+            ) {
+                motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+            }
+            
+            xSemaphoreGive(ioLock);
+
+            #ifdef RM_ANALYSIS_MODE
+                #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
+                    digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
+                #endif
+            #endif
+
+            // Delay until next period
+            vTaskDelayUntil(&xLastWakeTime, xPeriod);
         }
-        
-
-        #ifdef RM_ANALYSIS_MODE
-            #if RM_ANALYSIS_MODE == RM_FOCUS_SHIFT_REG
-                digitalWrite(RM_OUTPUT_PIN, LOW); // Set the output pin high to indicate the start of the task
-            #endif
-        #endif
-
-        // Delay until next period
-        vTaskDelayUntil(&xLastWakeTime, xPeriod);
     }
 }
 
@@ -510,6 +536,15 @@ void vPrvControlMotors(void *pvParameters)
         digitalWrite(MOTOR_RDIR, rightDir);
 
         // Update Global LED State Tracking Variable
+
+        #ifdef ENABLE_DEBUG_LED
+        // Turn on the 3 rear LEDs to signify we're in autonomous mode
+
+        if (autonomousMode) {
+                ledBits |= (1 << LED_SOUTH) | (1 << LED_SOUTHEAST) | (1 << LED_SOUTHWEST);
+        }
+        #endif
+
         LedBits = ledBits;
 
         #ifdef RM_ANALYSIS_MODE
@@ -595,32 +630,47 @@ void vPrvCameraParse(void *pvParameters)
             #endif
         #endif
 
-/*
+        #ifdef CAMERA_ENABLE
 
         // Camera parsing logic
         const float ANGLE_THRESHOLD = 20.0f;
 
-        camera_fb_t *fb = esp_camera_fb_get();
+        if (autonomousMode) {
 
-        if (fb)
-        {
-            float angle = get_line_angle_from_frame(fb);
+            if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
+   
+                camera_fb_t *fb = esp_camera_fb_get();
+                if (fb)
+                {
+                    float angle = get_line_angle_from_frame(fb);
 
-            byte_t direction = Stop;
-            if (autonomousMode && !isnan(angle))
-            {
-                // Convert angle to direction 
-                if (angle > ANGLE_THRESHOLD) direction = NorthEast;
-                else if (angle < -ANGLE_THRESHOLD) direction = NorthWest;
-                else direction = North;
+                    byte_t direction = Stop;
+                    if (!isnan(angle))
+                    {
+                        // Convert angle to direction 
+                        if (angle > ANGLE_THRESHOLD) direction = NorthWest;
+                        else if (angle < -ANGLE_THRESHOLD) direction = NorthEast;
+                        else direction = North;
 
-                motorCommand.setMotorSpeed(direction, MANUAL_CONTROL_TIMEOUT);
+                        motorCommand.setMotorSpeed(direction, AUTO_CONTROL_TIMEOUT);
+                    }
+
+                    // Return the frame buffer to the driver
+                    esp_camera_fb_return(fb);
+                }
+                else {
+                    // Error state
+                    pinMode(FLASH_LED, OUTPUT);
+                    digitalWrite(FLASH_LED, HIGH); 
+                }
+
+                xSemaphoreGive(ioLock);
             }
 
-            // Return the frame buffer to the driver
-            esp_camera_fb_return(fb);
+            
         }
-*/
+
+        #endif
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_CAMERA
@@ -656,6 +706,8 @@ void vPrvControllerParse(void *pvParameters)
             #endif
         #endif
 
+        #ifdef BLUETOOTH_CONTROLLER
+
         // Bluetooth controller parsing logic
         byte_t buttonDirection = Stop;
         static bool buttonStateChanged = false;
@@ -690,6 +742,8 @@ void vPrvControllerParse(void *pvParameters)
             if(!autonomousMode)
             motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
         }
+
+        #endif
 
         #ifdef RM_ANALYSIS_MODE
             #if RM_ANALYSIS_MODE == RM_FOCUS_CONTROLLER
