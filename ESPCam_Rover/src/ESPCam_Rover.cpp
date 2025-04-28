@@ -171,8 +171,8 @@ void setup()
 
 
     // I placed this block here to easily detect a segfault reset. Inadvertently, it resolved the issue I was
-    // facing where the program crashes after 5-20 seconds in autonomous mode. I think it's related to the camera's LEDC
-    // Will look into this as time allows
+    // facing where the program crashes after 5-20 seconds in autonomous mode. I think it's related to a conflict 
+    // with the camera's LEDC. Will look into this as time allows
     analogWrite(MOTOR_LSPEED, 50);
     digitalWrite(MOTOR_LDIR, LEFT_FORWARD);
     analogWrite(MOTOR_RSPEED, 50);
