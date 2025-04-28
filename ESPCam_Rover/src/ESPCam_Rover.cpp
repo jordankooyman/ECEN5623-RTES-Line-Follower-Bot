@@ -120,6 +120,23 @@ void setup()
             return;
         }
         sensor_t *s = esp_camera_sensor_get();
+
+        // Turn off auto gain, auto exposure, auto white-balance to avoid large delays
+        s->set_gain_ctrl    (s, 0); 
+        s->set_exposure_ctrl(s, 0); 
+        s->set_awb_gain     (s, 0);  
+        s->set_aec2         (s, 0); 
+        s->set_aec_value    (s, 300);
+        s->set_ae_level     (s, 0);     
+
+        // Warm the camera to avoid large delays in early runs
+        for (int i = 0; i < 5; i++) {
+            camera_fb_t *fb = esp_camera_fb_get();
+            if (fb) {
+                esp_camera_fb_return(fb);
+            }
+            vTaskDelay(pdMS_TO_TICKS(30));
+          }
     #endif
 
     // Initialize shift register pins
@@ -177,7 +194,6 @@ void setup()
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
 
     LedBits = 0; 
-
 
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
