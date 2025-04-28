@@ -106,9 +106,9 @@ void setup()
         config.pixel_format = PIXFORMAT_GRAYSCALE;
         config.frame_size = FRAMESIZE_96X96;
         config.jpeg_quality = 12;
-        config.fb_count = 1;
+        config.fb_count = 3;
         config.grab_mode = CAMERA_GRAB_LATEST;
-        config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
+        config.fb_location  = CAMERA_FB_IN_DRAM; 
 
         // Init camera
         esp_err_t err = esp_camera_init(&config);
@@ -177,13 +177,6 @@ void setup()
     digitalWrite(MOTOR_RDIR, RIGHT_FORWARD);
 
     LedBits = 0; 
-
-/*
-    #ifdef BLUETOOTH_CONTROLLER
-        BP32.setup(&onConnectedController, &onDisconnectedController);
-        BP32.forgetBluetoothKeys();  // Clear old pairings
-    #endif
-*/
 
 
     // Create tasks

@@ -57,7 +57,7 @@
 #define ENABLE_DEBUG_LED // Use S/SE/SW LED bits for debugging
 
 
-//#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
+#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
 #define CONTROLLER_DEADZONE (100) // Joystick range of [-512, 512] will ignore any values below this threshold
 #define CONTROLLER_A (0x0002)
 #define CONTROLLER_B (0x0001)
