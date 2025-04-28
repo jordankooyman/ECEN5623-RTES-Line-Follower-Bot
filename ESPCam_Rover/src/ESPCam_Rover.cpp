@@ -382,11 +382,6 @@ void vPrvControlMotors(void *pvParameters)
         byte_t timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeedTimeout(&dir, &timeout);
 
-        if (timeout > 0)
-            timeout--;
-        else
-            dir = Stop;
-
         byte_t leftSpeed = MOTOR_STOP;
         byte_t rightSpeed = MOTOR_STOP;
         byte_t leftDir = LEFT_FORWARD;
@@ -512,6 +507,13 @@ void vPrvControlMotors(void *pvParameters)
                 break; // Use initialization values
         }
 
+        // If the timeout has expired, stop the motors (but LEDs still show the direction)
+        if (timeout <= 0)
+        {
+            leftSpeed = MOTOR_STOP;
+            rightSpeed = MOTOR_STOP;
+        }
+
         // Update outputs
         analogWrite(MOTOR_LSPEED, leftSpeed);
         digitalWrite(MOTOR_LDIR, leftDir);
@@ -519,15 +521,12 @@ void vPrvControlMotors(void *pvParameters)
         digitalWrite(MOTOR_RDIR, rightDir);
 
         // Update Global LED State Tracking Variable
-
         #ifdef ENABLE_DEBUG_LED
-        // Turn on the 3 rear LEDs to signify we're in autonomous mode
-
-        if (autonomousMode) {
-                ledBits |= (1 << LED_SOUTH) | (1 << LED_SOUTHEAST) | (1 << LED_SOUTHWEST);
-        }
+            // Turn on the 3 rear LEDs to signify we're in autonomous mode
+            if (autonomousMode) {
+                    ledBits |= (1 << LED_SOUTH) | (1 << LED_SOUTHEAST) | (1 << LED_SOUTHWEST);
+            }
         #endif
-
         LedBits = ledBits;
 
         #ifdef RM_ANALYSIS_MODE
