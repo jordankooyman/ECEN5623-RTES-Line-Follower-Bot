@@ -21,7 +21,7 @@
 #define CAMERA_SERVICE_STACK_SIZE (10240) // Stack size (words) for the camera parsing service task
 #define CAMERA_SERVICE_PERIOD_MS (110) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
 #define CAMERA_SERVICE_PRIORITY (5) // Priority for the camera parsing service task
-#define CAMERA_SERVICE_CORE (1) // Core for the camera parsing service task (core 1)
+#define CAMERA_SERVICE_CORE (0) // Core for the camera parsing service task (core 1)
 #define CONTROLLER_SERVICE_STACK_SIZE (4096) // Stack size (words) for the controller parsing service task
 #define CONTROLLER_SERVICE_PERIOD_MS (84) // Period for the controller parsing service task
 #define CONTROLLER_SERVICE_PRIORITY (8) // Priority for the controller parsing service task

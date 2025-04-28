@@ -120,23 +120,6 @@ void setup()
             return;
         }
         sensor_t *s = esp_camera_sensor_get();
-
-        // Turn off auto gain, auto exposure, auto white-balance to avoid large delays
-        s->set_gain_ctrl    (s, 0); 
-        s->set_exposure_ctrl(s, 0); 
-        s->set_awb_gain     (s, 0);  
-        s->set_aec2         (s, 0); 
-        s->set_aec_value    (s, 300);
-        s->set_ae_level     (s, 0);     
-
-        // Warm the camera to avoid large delays in early runs
-        for (int i = 0; i < 5; i++) {
-            camera_fb_t *fb = esp_camera_fb_get();
-            if (fb) {
-                esp_camera_fb_return(fb);
-            }
-            vTaskDelay(pdMS_TO_TICKS(30));
-          }
     #endif
 
     // Initialize shift register pins
@@ -240,6 +223,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
 
             byte_t buttonStates = 0;
             byte_t ledStates = LedBits;
+            static byte_t lastDir = Stop;
             #ifdef ENABLE_FLASH_LED
                 byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
             #endif
@@ -299,13 +283,14 @@ void vPrvRunShiftRegisters(void *pvParameters)
             byte_t buttonDirection = xPrvParseButtons(buttonStates);
 
             // Update motor state if in manual mode
-            if (
-                !autonomousMode 
-                #ifdef BLUETOOTH_CONTROLLER // But if we have an active bluetooth controller, let it drive
-                && (!activeController || !activeController->isConnected())
-                #endif
-            ) {
-                motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+            if (!autonomousMode) {
+                if (buttonDirection != Stop) {
+                    motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+                }
+                else if (lastDir != Stop) {
+                    // Only send one stop to avoid flooding the bluetooth controller
+                    motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
+                }
             }
             
             xSemaphoreGive(ioLock);
@@ -726,6 +711,7 @@ void vPrvControllerParse(void *pvParameters)
         // Bluetooth controller parsing logic
         byte_t buttonDirection = Stop;
         static bool buttonStateChanged = false;
+        static byte_t lastDir = Stop;
 
         if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
             BP32.update();
@@ -758,8 +744,15 @@ void vPrvControllerParse(void *pvParameters)
                 buttonStateChanged = false;
             }
 
-            if(!autonomousMode)
-            motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+            if (!autonomousMode) {
+                if (buttonDirection != Stop) {
+                    motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+                }
+                else if (lastDir != Stop) {
+                    // Only send one stop to avoid flooding the other controller
+                    motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
+                }
+            }
         }
 
         #endif
