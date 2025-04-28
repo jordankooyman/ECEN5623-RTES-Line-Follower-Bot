@@ -6,7 +6,7 @@
 // It integrates motor control, shift register handling, camera parsing, and controller parsing tasks using FreeRTOS.
 // The rover processes input from a shift register and optionally a camera or controller to determine motor commands,
 // enabling autonomous navigation or manual control.
-// Last modified on 4/21/2025
+// Last modified on 4/27/2025
 
 // Includes
 #include <Arduino.h>
@@ -21,16 +21,13 @@
 #include "esp_camera.h"
 
 
-// Constants
+// --Constants--
 #define SHIFT_REG_BITS (8)
 #define MANUAL_CONTROL_TIMEOUT (5) // How many motor ticks to wait before current command expires
 #define AUTO_CONTROL_TIMEOUT (1) 
 
-// Global Variables
-
+// --Global Variables--
 static SemaphoreHandle_t ioLock;
-
-
 // Task handles
 static TaskHandle_t shiftRegService = NULL;
 static TaskHandle_t motorControlService = NULL;
@@ -44,46 +41,29 @@ volatile byte_t LedBits;
     CRGB leds[PIXEL_COUNT];
     CRGB currentColor = CRGB::Teal;
 #endif
+#ifdef BLUETOOTH_CONTROLLER
+    // Global controller pointer
+    ControllerPtr activeController = nullptr;
+#endif
 
-// Function Prototypes
+// --Function Prototypes--
 void vPrvRunShiftRegisters(void *pvParameters);
 void vPrvControlMotors(void *pvParameters);
 void vPrvCameraParse(void *pvParameters);
 void vPrvControllerParse(void *pvParameters);
 byte_t xPrvParseButtons(byte_t ButtonBits);
-
-
-// Function Definitions
-
-
 #ifdef BLUETOOTH_CONTROLLER
-// Global controller pointer
-ControllerPtr activeController = nullptr;
-
-// Controller connected callback
-void onConnectedController(ControllerPtr ctl) {
-
-    if (!activeController) {
-        activeController = ctl;
-        
-    } else {
-        ctl->disconnect();  // Force disconnect extra controllers
-    }
-}
-
-// Controller disconnected callback
-void onDisconnectedController(ControllerPtr ctl) {
-    if (activeController == ctl) {
-        activeController = nullptr;
-    }
-}
+    void onConnectedController(ControllerPtr ctl);
+    void onDisconnectedController(ControllerPtr ctl);
 #endif
 
+
+// --Function Definitions--
 /**
  * Setup function for the ESP32-CAM Rover.
  * Initializes motor control pins, shift register pins, and creates tasks for various services.
  * The function also sets the initial states for the motors and the shift registers.
- * Written by Jordan Kooyman
+ * Written by Jordan Kooyman & Eric Percin
  */
 void setup()
 {
@@ -206,7 +186,6 @@ void setup()
 */
 
 
-
     // Create tasks
     xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
     xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
@@ -220,7 +199,7 @@ void setup()
  * All services are handled in their respective tasks.
  */
 void loop() {
-    // Do Nothing
+    // Do Nothing (effectively an idle task)
 }
 
 
@@ -639,9 +618,6 @@ void vPrvCameraParse(void *pvParameters)
         // Camera parsing logic
         const float ANGLE_THRESHOLD = 20.0f;
 
-
-       
-
         
         if (autonomousMode) {
 
@@ -691,6 +667,28 @@ void vPrvCameraParse(void *pvParameters)
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
     }
 }
+
+
+#ifdef BLUETOOTH_CONTROLLER
+// Controller connected callback
+void onConnectedController(ControllerPtr ctl) {
+
+    if (!activeController) {
+        activeController = ctl;
+        
+    } else {
+        ctl->disconnect();  // Force disconnect extra controllers
+    }
+}
+
+
+// Controller disconnected callback
+void onDisconnectedController(ControllerPtr ctl) {
+    if (activeController == ctl) {
+        activeController = nullptr;
+    }
+}
+#endif
 
 
 /**

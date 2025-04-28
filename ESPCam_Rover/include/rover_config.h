@@ -1,7 +1,7 @@
 // File: rover_config.h
 // Configuration values for the ESPCam Rover, hardware dependent
-// Written by Jordan Kooyman (jordan.kooyman@colorado.edu)
-// Last modified on 4/21/2025
+// Written by Jordan Kooyman (jordan.kooyman@colorado.edu) & Eric Percin (eric.percin@colorado.edu)
+// Last modified on 4/27/2025
 
 #include <Arduino.h>
 
@@ -19,8 +19,8 @@
 #define MOTOR_SERVICE_PRIORITY (10) // Priority for the motor control service task
 #define MOTOR_SERVICE_CORE (1) // Core for the motor control service task
 #define CAMERA_SERVICE_STACK_SIZE (10240) // Stack size (words) for the camera parsing service task
-#define CAMERA_SERVICE_PERIOD_MS (50) // Period for the camera parsing service task
-#define CAMERA_SERVICE_PRIORITY (3) // Priority for the camera parsing service task
+#define CAMERA_SERVICE_PERIOD_MS (110) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
+#define CAMERA_SERVICE_PRIORITY (5) // Priority for the camera parsing service task
 #define CAMERA_SERVICE_CORE (0) // Core for the camera parsing service task (core 0 for now since it uses WiFi)
 #define CONTROLLER_SERVICE_STACK_SIZE (4096) // Stack size (words) for the controller parsing service task
 #define CONTROLLER_SERVICE_PERIOD_MS (84) // Period for the controller parsing service task
@@ -34,7 +34,7 @@
 #define RM_FOCUS_CAMERA (3)
 #define RM_FOCUS_CONTROLLER (4)
 // Analysis mode configurations
-//#define RM_ANALYSIS_MODE (RM_FOCUS_SHIFT_REG) // Comment out to disable, or set to the value of the desired task to monitor
+//#define RM_ANALYSIS_MODE (RM_FOCUS_CAMERA) // Comment out to disable, or set to the value of the desired task to monitor
 #define RM_ANALYSIS_PRIORITY_OVERRIDE (50) // Comment out to disable, or set to a priority greater than all others in the system to assign to desired task
 #define RM_OUTPUT_PIN (1) // TX Pin for the ESP32-CAM (GPIO 1) - used for timing output in analysis mode
 
@@ -57,7 +57,7 @@
 #define ENABLE_DEBUG_LED // Use S/SE/SW LED bits for debugging
 
 
-#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the bitshift controller. Comment out to disable
+#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
 #define CONTROLLER_DEADZONE (100) // Joystick range of [-512, 512] will ignore any values below this threshold
 #define CONTROLLER_A (0x0002)
 #define CONTROLLER_B (0x0001)
@@ -65,7 +65,7 @@
 #define CONTROLLER_Y (0x0004)
 
 //---Motor Speed Configurations---
-#define E_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
+#define J_ROVER // Select Rover Configuration (J_ROVER or E_ROVER)
 // Jordan's Rover
 #ifdef J_ROVER
     #define LEFT_FORWARD (HIGH)
