@@ -28,6 +28,8 @@
 
 // --Global Variables--
 static SemaphoreHandle_t ioLock;
+static QueueHandle_t camQ = nullptr;
+
 // Task handles
 static TaskHandle_t shiftRegService = NULL;
 static TaskHandle_t motorControlService = NULL;
@@ -106,8 +108,8 @@ void setup()
         config.pixel_format = PIXFORMAT_GRAYSCALE;
         config.frame_size = FRAMESIZE_96X96;
         config.jpeg_quality = 12;
-        config.fb_count = 3;
-        config.grab_mode = CAMERA_GRAB_LATEST;
+        config.fb_count = 5;
+        config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
         config.fb_location  = CAMERA_FB_IN_DRAM; 
 
         // Init camera
@@ -622,6 +624,7 @@ void vPrvCameraParse(void *pvParameters)
                 xSemaphoreGive(ioLock);
                 if (fb)
                 {
+
                     float angle = get_line_angle_from_frame(fb);
 
                     byte_t direction = Stop;
@@ -634,7 +637,6 @@ void vPrvCameraParse(void *pvParameters)
 
                         motorCommand.setMotorSpeed(direction, AUTO_CONTROL_TIMEOUT);
                     }
-
                     // Return the frame buffer to the driver
                     esp_camera_fb_return(fb);
                 }
