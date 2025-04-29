@@ -19,7 +19,7 @@
 #define MOTOR_SERVICE_PRIORITY (10) // Priority for the motor control service task
 #define MOTOR_SERVICE_CORE (1) // Core for the motor control service task
 #define CAMERA_SERVICE_STACK_SIZE (10240) // Stack size (words) for the camera parsing service task
-#define CAMERA_SERVICE_PERIOD_MS (110) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
+#define CAMERA_SERVICE_PERIOD_MS (100) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
 #define CAMERA_SERVICE_PRIORITY (5) // Priority for the camera parsing service task
 #define CAMERA_SERVICE_CORE (0) // Core for the camera parsing service task (core 1)
 #define CONTROLLER_SERVICE_STACK_SIZE (4096) // Stack size (words) for the controller parsing service task
@@ -115,6 +115,7 @@
 #define LEFT_MAX_SPEED 255
 #define RIGHT_MIN_SPEED 0
 #define RIGHT_MAX_SPEED 255
+#define DISPLAY_TIMEOUT (-8)
 
 
 // ***System Configurations***

@@ -375,8 +375,13 @@ void vPrvControlMotors(void *pvParameters)
         #endif
 
         byte_t dir;
-        byte_t timeout; // How many motor ticks to wait before current command expires
+        char timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeedTimeout(&dir, &timeout);
+
+        if (timeout <= DISPLAY_TIMEOUT) // If timeout is very expired, clear the LED display as well
+        {
+            dir = Stop; // Stop motors if timeout has  expired
+        }
 
         byte_t leftSpeed = MOTOR_STOP;
         byte_t rightSpeed = MOTOR_STOP;
