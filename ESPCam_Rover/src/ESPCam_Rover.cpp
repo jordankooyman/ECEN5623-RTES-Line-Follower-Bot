@@ -74,11 +74,11 @@ void setup()
     ioLock = xSemaphoreCreateMutex();
 
     #ifdef BLUETOOTH_CONTROLLER
-        // Gives us 30 seconds to make a successful bluetooth connection. Otherwise, proceed w/ wired controller
+        // Gives us 5 seconds to make a successful bluetooth connection. Otherwise, proceed w/ wired controller
         BP32.forgetBluetoothKeys();  
         BP32.setup(&onConnectedController, &onDisconnectedController);
         unsigned long start = millis();
-        while ((!activeController || !activeController->isConnected()) && (millis() - start < 30000UL)) {
+        while ((!activeController || !activeController->isConnected()) && (millis() - start < 5000UL)) {
             BP32.update();
             delay(50);
         }
@@ -294,6 +294,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
                 }
             }
+            lastDir = buttonDirection; // Store last direction for manual control
             
             xSemaphoreGive(ioLock);
 
@@ -760,6 +761,7 @@ void vPrvControllerParse(void *pvParameters)
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
                 }
             }
+            lastDir = buttonDirection; // Store last direction for manual control
         }
 
         #endif
