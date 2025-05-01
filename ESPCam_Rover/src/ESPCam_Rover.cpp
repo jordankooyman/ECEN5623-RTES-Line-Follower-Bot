@@ -107,7 +107,7 @@ void setup()
         config.xclk_freq_hz = 20000000;
     #ifdef CAMERA_COLOR
         config.pixel_format = PIXFORMAT_RGB565;
-        config.fb_count = 5;
+        config.fb_count = 1;
     #else
         config.pixel_format = PIXFORMAT_GRAYSCALE;
         config.fb_count = 5;
@@ -293,12 +293,15 @@ void vPrvRunShiftRegisters(void *pvParameters)
             if (!autonomousMode) {
                 if (buttonDirection != Stop) {
                     motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+                    lastDir = buttonDirection;      
                 }
                 else if (lastDir != Stop) {
-                    // Only send one stop to avoid flooding the bluetooth controller
+                    // Only send one stop to avoid flooding the other controller
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
+                    lastDir = Stop;               
                 }
             }
+            
             
             xSemaphoreGive(ioLock);
 
@@ -831,12 +834,15 @@ void vPrvControllerParse(void *pvParameters)
             if (!autonomousMode) {
                 if (buttonDirection != Stop) {
                     motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+                    lastDir = buttonDirection;     
                 }
                 else if (lastDir != Stop) {
                     // Only send one stop to avoid flooding the other controller
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
+                    lastDir = Stop;                  
                 }
             }
+            
         }
 
         #endif
