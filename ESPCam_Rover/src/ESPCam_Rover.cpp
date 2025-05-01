@@ -73,12 +73,23 @@ void setup()
     // This semaphore prevents those three tasks from interrupting each other's critical sections
     ioLock = xSemaphoreCreateMutex();
 
+    // Initialize shift register pins
+    #ifdef SHIFT_LED_DISPLAY
+        pinMode(DATA_OUT, OUTPUT);
+    #else
+        FastLED.addLeds<WS2812, DATA_OUT, GRB>(leds, PIXEL_COUNT);
+        fill_solid(leds, PIXEL_COUNT, CRGB::BlueViolet);
+        FastLED.setBrightness(100);
+        FastLED.show();
+        delay(1000); // Startup delay for show
+    #endif
+
     #ifdef BLUETOOTH_CONTROLLER
-        // Gives us 5 seconds to make a successful bluetooth connection. Otherwise, proceed w/ wired controller
+        // Gives us ? seconds to make a successful bluetooth connection. Otherwise, proceed w/ wired controller only
         BP32.forgetBluetoothKeys();  
         BP32.setup(&onConnectedController, &onDisconnectedController);
         unsigned long start = millis();
-        while ((!activeController || !activeController->isConnected()) && (millis() - start < 5000UL)) {
+        while ((!activeController || !activeController->isConnected()) && (millis() - start < STARTUP_CONNECTION_DELAY_MS)) {
             BP32.update();
             delay(50);
         }
@@ -124,16 +135,7 @@ void setup()
         sensor_t *s = esp_camera_sensor_get();
     #endif
 
-    // Initialize shift register pins
-    #ifdef SHIFT_LED_DISPLAY
-        pinMode(DATA_OUT, OUTPUT);
-    #else
-        FastLED.addLeds<WS2812, DATA_OUT, GRB>(leds, PIXEL_COUNT);
-        fill_solid(leds, PIXEL_COUNT, CRGB::BlueViolet);
-        FastLED.setBrightness(100);
-        FastLED.show();
-        delay(1000); // Startup delay for show
-    #endif
+    
     pinMode(SHIFT_CLK, OUTPUT);   // This line appears to interfere with camera capture
     pinMode(LATCH_PIN, OUTPUT);
     pinMode(DATA_IN, INPUT);
@@ -180,11 +182,43 @@ void setup()
 
     LedBits = 0; 
 
+    #ifndef SHIFT_LED_DISPLAY // Debug Point Output Checkpoint
+        fill_solid(leds, PIXEL_COUNT, CRGB::GreenYellow);
+        FastLED.setBrightness(50);
+        FastLED.show();
+        delay(500); // Startup delay for show
+    #endif
+
     // Create tasks
-    xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
+    
     xTaskCreatePinnedToCore(vPrvControlMotors, "Motor Control Service", MOTOR_SERVICE_STACK_SIZE, NULL, MOTOR_SERVICE_PRIORITY, &motorControlService, MOTOR_SERVICE_CORE);
+    #ifndef SHIFT_LED_DISPLAY // Debug Point Output Checkpoint
+        fill_solid(leds, PIXEL_COUNT, CRGB::YellowGreen);
+        FastLED.setBrightness(100);
+        FastLED.show();
+        delay(500); // Startup delay for show
+    #endif
+    xTaskCreatePinnedToCore(vPrvRunShiftRegisters, "Shift Register Service", SHIFT_REG_SERVICE_STACK_SIZE, NULL, SHIFT_REG_SERVICE_PRIORITY, &shiftRegService, SHIFT_REG_SERVICE_CORE);
+    #ifndef SHIFT_LED_DISPLAY // Debug Point Output Checkpoint
+        fill_solid(leds, PIXEL_COUNT, CRGB::Red);
+        FastLED.setBrightness(100);
+        FastLED.show();
+        delay(500); // Startup delay for show
+    #endif
     xTaskCreatePinnedToCore(vPrvCameraParse, "Camera Parsing Service", CAMERA_SERVICE_STACK_SIZE, NULL, CAMERA_SERVICE_PRIORITY, &cameraParsingService, CAMERA_SERVICE_CORE);
+    #ifndef SHIFT_LED_DISPLAY // Debug Point Output Checkpoint
+        fill_solid(leds, PIXEL_COUNT, CRGB::Coral);
+        FastLED.setBrightness(100);
+        FastLED.show();
+        delay(500); // Startup delay for show
+    #endif
     xTaskCreatePinnedToCore(vPrvControllerParse, "Controller Parsing Service", CONTROLLER_SERVICE_STACK_SIZE, NULL, CONTROLLER_SERVICE_PRIORITY, &controllerParsingService, CONTROLLER_SERVICE_CORE);
+    #ifndef SHIFT_LED_DISPLAY // Debug Point Output Checkpoint
+        fill_solid(leds, PIXEL_COUNT, CRGB::RoyalBlue);
+        FastLED.setBrightness(100);
+        FastLED.show();
+        delay(500); // Startup delay for show
+    #endif
 }
 
 /**
@@ -229,12 +263,13 @@ void vPrvRunShiftRegisters(void *pvParameters)
             #ifdef ENABLE_FLASH_LED
                 byte_t prevPinState = digitalRead(FLASH_LED); // Preserve Flash Pin State afterwards
             #endif
+
             #ifndef SHIFT_LED_DISPLAY
                 // Output data via the WS2812b LED Ring
                 // Clear all LEDs
                 fill_solid(leds, PIXEL_COUNT, CRGB::Black);
 
-                // Set the LED corresponding to the current direction to green
+                // Set the LED corresponding to the current direction to preset color
                 if (ledStates)
                     leds[ledStates-1] = currentColor; 
                 FastLED.setBrightness(100);
@@ -242,6 +277,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
                 // Show the updated LED states
                 FastLED.show();
             #endif
+
             // Latch toggle to load parallel data into 74HC165n
             digitalWrite(LATCH_PIN, LOW);
             delayMicroseconds(5);  // Small delay for latch to take effect

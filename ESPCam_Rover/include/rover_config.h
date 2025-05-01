@@ -21,7 +21,7 @@
 #define CAMERA_SERVICE_STACK_SIZE (10240) // Stack size (words) for the camera parsing service task
 #define CAMERA_SERVICE_PERIOD_MS (100) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
 #define CAMERA_SERVICE_PRIORITY (5) // Priority for the camera parsing service task
-#define CAMERA_SERVICE_CORE (0) // Core for the camera parsing service task (core 1)
+#define CAMERA_SERVICE_CORE (1) // Core for the camera parsing service task (core 1)
 #define CONTROLLER_SERVICE_STACK_SIZE (4096) // Stack size (words) for the controller parsing service task
 #define CONTROLLER_SERVICE_PERIOD_MS (84) // Period for the controller parsing service task
 #define CONTROLLER_SERVICE_PRIORITY (8) // Priority for the controller parsing service task
@@ -50,14 +50,15 @@
 #define LATCH_PIN (3)   // Shared latch for both shift registers (RX pin)
 
 
-//#define SHIFT_LED_DISPLAY // Comment out to use WS2812b/NeoPixel display for directions instead of shift register display ring
+#define SHIFT_LED_DISPLAY // Comment out to use WS2812b/NeoPixel display for directions instead of shift register display ring
 
 #define CAMERA_ENABLE
 
 #define ENABLE_DEBUG_LED // Use S/SE/SW LED bits for debugging
 
 
-//#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
+#define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
+#define STARTUP_CONNECTION_DELAY_MS (10000UL) // Delay while waiting for controller to connect on startup
 #define CONTROLLER_DEADZONE (100) // Joystick range of [-512, 512] will ignore any values below this threshold
 #define CONTROLLER_A (0x0002)
 #define CONTROLLER_B (0x0001)
