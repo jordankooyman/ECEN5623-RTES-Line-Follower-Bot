@@ -23,6 +23,14 @@ enum Direction {
     MotorsOff = 35
 };
 
+enum LineColor {
+    LINE_COLOR_BLACK = 0,
+    LINE_COLOR_RED,
+    LINE_COLOR_GREEN,
+    LINE_COLOR_BLUE,
+    LINE_COLOR_UNKNOWN
+};
+
 class motorCommand_t
 {
 public:

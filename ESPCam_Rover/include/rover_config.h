@@ -53,6 +53,7 @@
 #define SHIFT_LED_DISPLAY // Comment out to use WS2812b/NeoPixel display for directions instead of shift register display ring
 
 #define CAMERA_ENABLE
+//#define CAMERA_COLOR // Comment out to revert to grayscale black and white line following
 
 #define ENABLE_DEBUG_LED // Use S/SE/SW LED bits for debugging
 

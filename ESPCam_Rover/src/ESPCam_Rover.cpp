@@ -28,7 +28,7 @@
 
 // --Global Variables--
 static SemaphoreHandle_t ioLock;
-static QueueHandle_t camQ = nullptr;
+LineColor currentTargetColor = LINE_COLOR_BLACK;
 
 // Task handles
 static TaskHandle_t shiftRegService = NULL;
@@ -105,12 +105,17 @@ void setup()
         config.pin_pwdn = PWDN_GPIO_NUM;
         config.pin_reset = RESET_GPIO_NUM;
         config.xclk_freq_hz = 20000000;
+    #ifdef CAMERA_COLOR
+        config.pixel_format = PIXFORMAT_RGB565;
+        config.fb_count = 5;
+    #else
         config.pixel_format = PIXFORMAT_GRAYSCALE;
+        config.fb_count = 5;
+    #endif        
         config.frame_size = FRAMESIZE_96X96;
         config.jpeg_quality = 12;
-        config.fb_count = 5;
         config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-        config.fb_location  = CAMERA_FB_IN_DRAM; 
+        config.fb_location = CAMERA_FB_IN_DRAM; 
 
         // Init camera
         esp_err_t err = esp_camera_init(&config);
@@ -590,9 +595,65 @@ float get_line_angle_from_frame(camera_fb_t *fb) {
 }
 
 
+/**
+ * The function `get_line_angle_from_color_frame` is a helper function for vPrvCameraParse
+ * It is identical in purpose to `get_line_angle_from_frame` but accepts a focus color
+ * Written by Eric Percin
+ * 
+ * @param fb A camera_fb_t frame buffer, currently grayscale and 96x96
+ * @param fb A camera_fb_t frame buffer, RGB565 96x96
+ * @return A float angle in degrees representing the direction to turn.
+ *         Positive values indicate turning right, negative values indicate
+ *         turning left. Returns NAN if no line is detected, or frame is invalid.
+ */
+float get_line_angle_from_color_frame(camera_fb_t *fb, LineColor target) {
+    if (!fb || fb->format != PIXFORMAT_RGB565 || !fb->buf || !fb->len) return NAN;
+
+    int w = fb->width;
+    int h = fb->height;
+    int scan_start = h - 20;
+    int scan_end = h - 10;
+
+    uint32_t sum = 0;
+    uint32_t count = 0;
+
+    for (int y = scan_start; y <= scan_end; y++) {
+        for (int x = 0; x < w; x++) {
+            int idx = (y * w + x) * 2;
+            if (idx + 1 >= fb->len) break;
+
+            uint8_t rgb565_byte0 = fb->buf[idx];
+            uint8_t rgb565_byte1 = fb->buf[idx + 1];
+            uint8_t r = B0 & 0xF8;
+            uint8_t g = ((rgb565_byte0 & 0x07) << 5) | ((rgb565_byte1 & 0xE0) >> 3);
+            uint8_t b = (rgb565_byte1 & 0x1F) << 3;
+
+            // Pick out the pixels matching our target color
+            LineColor current_pixel_color;
+            if (r < 50 && g < 50 && b < 50) current_pixel_color = LINE_COLOR_BLACK;
+            else if (r > 150 && g < 120 && b < 120) current_pixel_color = LINE_COLOR_RED;
+            else if (g > 50 && r < 80 && b < 80 && g > r + 30 && g > b + 30) current_pixel_color = LINE_COLOR_GREEN;
+            else if (r < 120 && g < 120 && b > 150) current_pixel_color = LINE_COLOR_BLUE;
+            else continue;
+
+            if (current_pixel_color != target) continue;
+
+            sum += x;
+            count++;
+        }
+    }
+
+    if (count == 0) return NAN;
+
+    // Find the horizontal center of our pixels of target color and the offset from the center
+    float center_x = (float)sum / (float)count;
+    float error = (center_x - (w / 2.0f)) / (w / 2.0f);
+    float angle = error * 45.0f;
+    return angle;
+}
 
 /**
- * The function `vPrvCameraParse` is a placeholder for camera parsing logic that runs periodically.
+ * The function `vPrvCameraParse` is a task for camera parsing logic that runs periodically.
  * It uses FreeRTOS to manage timing and task scheduling.
  * Written by Eric Percin
  * 
@@ -621,16 +682,17 @@ void vPrvCameraParse(void *pvParameters)
         
         if (autonomousMode) {
 
-           //motorCommand.setMotorSpeed(North, AUTO_CONTROL_TIMEOUT);
-
             if (xSemaphoreTake(ioLock, portMAX_DELAY) == pdTRUE) {
             
                 camera_fb_t *fb = esp_camera_fb_get();
                 xSemaphoreGive(ioLock);
                 if (fb)
                 {
-
-                    float angle = get_line_angle_from_frame(fb);
+                    #ifdef CAMERA_COLOR
+                        float angle = get_line_angle_from_color_frame(fb, LINE_COLOR_RED);
+                    #else
+                        float angle = get_line_angle_from_frame(fb);
+                    #endif
 
                     byte_t direction = Stop;
                     if (!isnan(angle))
@@ -732,10 +794,25 @@ void vPrvControllerParse(void *pvParameters)
             int16_t  ax  = activeController->axisX();  // [–512, 512]
         
             if (btn & CONTROLLER_A) buttonDirection += North;     // A = Forward
-            if (btn & CONTROLLER_B) buttonDirection += South;     // B = Reverse
-            //if (btn & CONTROLLER_Y)                             // Y is currently unused
+            if (btn & CONTROLLER_B) buttonDirection += South;     // B = Reverse                       
             if (ax < -CONTROLLER_DEADZONE) buttonDirection += West;
             if (ax > CONTROLLER_DEADZONE) buttonDirection += East;    
+
+            #ifdef CAMERA_COLOR
+                // Y switches target line color
+                if (btn & CONTROLLER_Y)    
+                {
+                    if (!buttonStateChanged)
+                    {
+                        buttonStateChanged = true;
+                        currentTargetColor = LineColor((currentTargetColor + 1) % 4);
+                    }
+                }
+                else
+                {
+                    buttonStateChanged = false;
+                }
+            #endif
 
             // X toggles autonomous mode (once per press)
             if (btn & CONTROLLER_X)
