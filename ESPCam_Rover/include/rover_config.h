@@ -19,12 +19,12 @@
 #define MOTOR_SERVICE_PRIORITY (10) // Priority for the motor control service task
 #define MOTOR_SERVICE_CORE (1) // Core for the motor control service task
 #define CAMERA_SERVICE_STACK_SIZE (10240) // Stack size (words) for the camera parsing service task
-#define CAMERA_SERVICE_PERIOD_MS (100) // Period for the camera parsing service task ---- WCET Measurement: 80.96ms!!!
-#define CAMERA_SERVICE_PRIORITY (5) // Priority for the camera parsing service task
-#define CAMERA_SERVICE_CORE (0) // Core for the camera parsing service task (core 1)
+#define CAMERA_SERVICE_PERIOD_MS (100) // Period for the camera parsing service task
+#define CAMERA_SERVICE_PRIORITY (8) // Priority for the camera parsing service task
+#define CAMERA_SERVICE_CORE (1) // Core for the camera parsing service task (core 1)
 #define CONTROLLER_SERVICE_STACK_SIZE (4096) // Stack size (words) for the controller parsing service task
-#define CONTROLLER_SERVICE_PERIOD_MS (84) // Period for the controller parsing service task
-#define CONTROLLER_SERVICE_PRIORITY (8) // Priority for the controller parsing service task
+#define CONTROLLER_SERVICE_PERIOD_MS (75) // Period for the controller parsing service task
+#define CONTROLLER_SERVICE_PRIORITY (5) // Priority for the controller parsing service task
 #define CONTROLLER_SERVICE_CORE (0) // Core for the controller parsing service task (must be core 0 for Bluetooth)
 
 //---Rate Monotonic Analysis Mode---
@@ -59,6 +59,7 @@
 
 
 #define BLUETOOTH_CONTROLLER // Enables the connection of a Bluetooth controller, overriding the shift register controller. Comment out to disable
+#define BLUETOOTH_CONTROLLER_STARTUP_DELAY (30000UL) // Delay for the Bluetooth controller to connect before starting the services (in ms)
 #define CONTROLLER_DEADZONE (100) // Joystick range of [-512, 512] will ignore any values below this threshold
 #define CONTROLLER_A (0x0002)
 #define CONTROLLER_B (0x0001)

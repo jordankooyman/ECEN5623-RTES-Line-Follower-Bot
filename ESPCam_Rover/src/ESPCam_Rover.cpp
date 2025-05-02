@@ -17,13 +17,17 @@
 #endif
 #include "rover_config.h"
 #include "custom_types.hpp"
-#include <Bluepad32.h>
-#include "esp_camera.h"
+#ifdef BLUETOOTH_CONTROLLER
+    #include <Bluepad32.h>
+#endif
+#ifdef CAMERA_ENABLE
+    #include "esp_camera.h"
+#endif
 
 
 // --Constants--
 #define SHIFT_REG_BITS (8)
-#define MANUAL_CONTROL_TIMEOUT (5) // How many motor ticks to wait before current command expires
+#define MANUAL_CONTROL_TIMEOUT (6) // How many motor ticks to wait before current command expires
 #define AUTO_CONTROL_TIMEOUT (1) 
 
 // --Global Variables--
@@ -78,7 +82,7 @@ void setup()
         BP32.forgetBluetoothKeys();  
         BP32.setup(&onConnectedController, &onDisconnectedController);
         unsigned long start = millis();
-        while ((!activeController || !activeController->isConnected()) && (millis() - start < 30000UL)) {
+        while ((!activeController || !activeController->isConnected()) && (millis() - start < BLUETOOTH_CONTROLLER_STARTUP_DELAY)) {
             BP32.update();
             delay(50);
         }
@@ -291,9 +295,6 @@ void vPrvRunShiftRegisters(void *pvParameters)
 
             // Update motor state if in manual mode
             if (!autonomousMode) {
-                motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
-                lastDir = buttonDirection;             
-           /*
                 if (buttonDirection != Stop) {
                     motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
                     lastDir = buttonDirection;      
@@ -302,7 +303,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
                     // Only send one stop to avoid flooding the other controller
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
                     lastDir = Stop;               
-                } */
+                }
             }
             
             
