@@ -49,7 +49,7 @@ public:
             xSemaphoreGive(xUpdatingSemaphore);
         }
     }
-    void getMotorSpeed(byte_t* d, char* t)
+    void getMotorSpeed(byte_t* d, byte_t* t)
     {
         // Wait for the semaphore to be available
         if (xSemaphoreTake(xUpdatingSemaphore, portMAX_DELAY) == pdTRUE)
@@ -62,7 +62,7 @@ public:
             xSemaphoreGive(xUpdatingSemaphore);
         }
     }
-    void getMotorSpeedTimeout(byte_t* d, char* t)
+    void getMotorSpeedTimeout(byte_t* d, byte_t* t)
     {
         // Wait for the semaphore to be available
         if (xSemaphoreTake(xUpdatingSemaphore, portMAX_DELAY) == pdTRUE)
@@ -71,7 +71,7 @@ public:
             *d = dir;
             *t = timeout;
 
-            if (timeout >= DISPLAY_TIMEOUT)
+            if (timeout > 0)
                 timeout--;
 
             // Give the semaphore back
@@ -81,6 +81,6 @@ public:
 private:
     SemaphoreHandle_t xUpdatingSemaphore; // Used to ensure atomic access to the motor commands
     volatile byte_t dir;
-    volatile char timeout;
+    volatile byte_t timeout;
 };
 #endif // CUSTOM_TYPES_HPP

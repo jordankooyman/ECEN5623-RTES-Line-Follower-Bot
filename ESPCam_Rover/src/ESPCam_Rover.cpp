@@ -291,6 +291,9 @@ void vPrvRunShiftRegisters(void *pvParameters)
 
             // Update motor state if in manual mode
             if (!autonomousMode) {
+                motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
+                lastDir = buttonDirection;             
+           /*
                 if (buttonDirection != Stop) {
                     motorCommand.setMotorSpeed(buttonDirection, MANUAL_CONTROL_TIMEOUT);
                     lastDir = buttonDirection;      
@@ -299,7 +302,7 @@ void vPrvRunShiftRegisters(void *pvParameters)
                     // Only send one stop to avoid flooding the other controller
                     motorCommand.setMotorSpeed(Stop, MANUAL_CONTROL_TIMEOUT);
                     lastDir = Stop;               
-                }
+                } */
             }
             
             
@@ -342,6 +345,7 @@ byte_t xPrvParseButtons(byte_t ButtonBits)
         {
             buttonStateChanged = true; // Set state
             autonomousMode = !autonomousMode; // Toggle autonomous mode
+            buttonDirection = Stop;
         }
         
     }
@@ -383,13 +387,8 @@ void vPrvControlMotors(void *pvParameters)
         #endif
 
         byte_t dir;
-        char timeout; // How many motor ticks to wait before current command expires
+        byte_t timeout; // How many motor ticks to wait before current command expires
         motorCommand.getMotorSpeedTimeout(&dir, &timeout);
-
-        if (timeout <= DISPLAY_TIMEOUT) // If timeout is very expired, clear the LED display as well
-        {
-            dir = Stop; // Stop motors if timeout has  expired
-        }
 
         byte_t leftSpeed = MOTOR_STOP;
         byte_t rightSpeed = MOTOR_STOP;
